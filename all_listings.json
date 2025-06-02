@@ -1,0 +1,603 @@
+[
+  {
+    "id": "1082092672297397383",
+    "coordinates": {
+      "latitude": 10.45843,
+      "longitude": -75.50582
+    },
+    "propertyType": "Entire rental unit",
+    "roomType": "Entire home/apt",
+    "homeTier": 1,
+    "personCapacity": 4,
+    "rating": {
+      "accuracy": 4.88,
+      "checking": 4.75,
+      "cleanliness": 4.69,
+      "communication": 4.78,
+      "location": 4.69,
+      "value": 4.66,
+      "guestSatisfaction": 4.81,
+      "reviewsCount": 32
+    },
+    "title": "1BR Modern APT w/Rooftop Pool near to beach",
+    "subDescription": {
+      "title": "Entire rental unit in La Boquilla, Colombia",
+      "items": [
+        "4 guests",
+        "1 bedroom",
+        "2 beds",
+        "2 baths"
+      ]
+    },
+    "amenities": [
+      {
+        "title": "Bathroom",
+        "values": [
+          {
+            "title": "Hair dryer",
+            "subtitle": "",
+            "icon": "SYSTEM_HAIRDRYER",
+            "available": true
+          },
+          {
+            "title": "Shampoo",
+            "subtitle": "",
+            "icon": "SYSTEM_SHAMPOO",
+            "available": true
+          },
+          {
+            "title": "Conditioner",
+            "subtitle": "",
+            "icon": "SYSTEM_SHAMPOO",
+            "available": true
+          },
+          {
+            "title": "Body soap",
+            "subtitle": "",
+            "icon": "SYSTEM_SOAP",
+            "available": true
+          },
+          {
+            "title": "Hot water",
+            "subtitle": "",
+            "icon": "SYSTEM_HOT_WATER",
+            "available": true
+          }
+        ]
+      },
+      {
+        "title": "Bedroom and laundry",
+        "values": [
+          {
+            "title": "Washer",
+            "subtitle": "",
+            "icon": "SYSTEM_WASHER",
+            "available": true
+          },
+          {
+            "title": "Free dryer – In unit",
+            "subtitle": "",
+            "icon": "SYSTEM_DRYER",
+            "available": true
+          },
+          {
+            "title": "Essentials",
+            "subtitle": "Towels, bed sheets, soap, and toilet paper",
+            "icon": "SYSTEM_TOILETRIES",
+            "available": true
+          },
+          {
+            "title": "Hangers",
+            "subtitle": "",
+            "icon": "SYSTEM_HANGERS",
+            "available": true
+          },
+          {
+            "title": "Bed linens",
+            "subtitle": "Cotton linens",
+            "icon": "SYSTEM_BLANKETS",
+            "available": true
+          },
+          {
+            "title": "Room-darkening shades",
+            "subtitle": "",
+            "icon": "SYSTEM_BLACKOUT_SHADES",
+            "available": true
+          },
+          {
+            "title": "Iron",
+            "subtitle": "",
+            "icon": "SYSTEM_IRON",
+            "available": true
+          },
+          {
+            "title": "Clothing storage: walk-in closet",
+            "subtitle": "",
+            "icon": "SYSTEM_WARDROBE",
+            "available": true
+          }
+        ]
+      },
+      {
+        "title": "Entertainment",
+        "values": [
+          {
+            "title": "TV",
+            "subtitle": "",
+            "icon": "SYSTEM_TV",
+            "available": true
+          },
+          {
+            "title": "Exercise equipment",
+            "subtitle": "",
+            "icon": "SYSTEM_GYM",
+            "available": true
+          }
+        ]
+      },
+      {
+        "title": "Family",
+        "values": [
+          {
+            "title": "Crib",
+            "subtitle": "",
+            "icon": "SYSTEM_CRIB",
+            "available": true
+          }
+        ]
+      },
+      {
+        "title": "Heating and cooling",
+        "values": [
+          {
+            "title": "Air conditioning",
+            "subtitle": "",
+            "icon": "SYSTEM_SNOWFLAKE",
+            "available": true
+          },
+          {
+            "title": "Heating",
+            "subtitle": "",
+            "icon": "SYSTEM_THERMOMETER",
+            "available": true
+          }
+        ]
+      },
+      {
+        "title": "Home safety",
+        "values": [
+          {
+            "title": "Smoke alarm",
+            "subtitle": "",
+            "icon": "SYSTEM_DETECTOR_SMOKE",
+            "available": true
+          }
+        ]
+      },
+      {
+        "title": "Internet and office",
+        "values": [
+          {
+            "title": "Wifi",
+            "subtitle": "",
+            "icon": "SYSTEM_WI_FI",
+            "available": true
+          },
+          {
+            "title": "Dedicated workspace",
+            "subtitle": "",
+            "icon": "SYSTEM_WORKSPACE",
+            "available": true
+          }
+        ]
+      },
+      {
+        "title": "Kitchen and dining",
+        "values": [
+          {
+            "title": "Kitchen",
+            "subtitle": "Space where guests can cook their own meals",
+            "icon": "SYSTEM_COOKING_BASICS",
+            "available": true
+          },
+          {
+            "title": "Refrigerator",
+            "subtitle": "",
+            "icon": "SYSTEM_REFRIGERATOR",
+            "available": true
+          },
+          {
+            "title": "Microwave",
+            "subtitle": "",
+            "icon": "SYSTEM_MICROWAVE",
+            "available": true
+          },
+          {
+            "title": "Cooking basics",
+            "subtitle": "Pots and pans, oil, salt and pepper",
+            "icon": "SYSTEM_COOKING_BASICS",
+            "available": true
+          },
+          {
+            "title": "Dishes and silverware",
+            "subtitle": "Bowls, chopsticks, plates, cups, etc.",
+            "icon": "SYSTEM_DISHES_AND_SILVERWARE",
+            "available": true
+          },
+          {
+            "title": "Gas stove",
+            "subtitle": "",
+            "icon": "SYSTEM_STOVE",
+            "available": true
+          },
+          {
+            "title": "Oven",
+            "subtitle": "",
+            "icon": "SYSTEM_OVEN",
+            "available": true
+          },
+          {
+            "title": "Coffee maker",
+            "subtitle": "",
+            "icon": "SYSTEM_COFFEE_MAKER",
+            "available": true
+          },
+          {
+            "title": "Wine glasses",
+            "subtitle": "",
+            "icon": "SYSTEM_MAPS_BAR",
+            "available": true
+          },
+          {
+            "title": "Blender",
+            "subtitle": "",
+            "icon": "SYSTEM_BLENDER",
+            "available": true
+          }
+        ]
+      },
+      {
+        "title": "Outdoor",
+        "values": [
+          {
+            "title": "Outdoor furniture",
+            "subtitle": "",
+            "icon": "SYSTEM_ROOFTOP_DECK",
+            "available": true
+          },
+          {
+            "title": "BBQ grill",
+            "subtitle": "",
+            "icon": "SYSTEM_GRILL",
+            "available": true
+          }
+        ]
+      },
+      {
+        "title": "Parking and facilities",
+        "values": [
+          {
+            "title": "Free parking on premises",
+            "subtitle": "",
+            "icon": "SYSTEM_MAPS_CAR_RENTAL",
+            "available": true
+          },
+          {
+            "title": "Pool - available all year",
+            "subtitle": "",
+            "icon": "SYSTEM_POOL",
+            "available": true
+          },
+          {
+            "title": "Shared hot tub - available all year",
+            "subtitle": "",
+            "icon": "SYSTEM_JACUZZI",
+            "available": true
+          },
+          {
+            "title": "Elevator",
+            "subtitle": "The home or building has an elevator that’s at least 52 inches deep and a doorway at least 32 inches wide",
+            "icon": "SYSTEM_ELEVATOR",
+            "available": true
+          },
+          {
+            "title": "Shared gym in building",
+            "subtitle": "",
+            "icon": "SYSTEM_GYM",
+            "available": true
+          }
+        ]
+      },
+      {
+        "title": "Services",
+        "values": [
+          {
+            "title": "Pets allowed",
+            "subtitle": "Assistance animals are always allowed",
+            "icon": "SYSTEM_PETS",
+            "available": true
+          },
+          {
+            "title": "Self check-in",
+            "subtitle": "",
+            "icon": "SYSTEM_KEY",
+            "available": true
+          },
+          {
+            "title": "Building staff",
+            "subtitle": "Someone is available 24 hours a day to let guests in",
+            "icon": "SYSTEM_DOORMAN",
+            "available": true
+          }
+        ]
+      },
+      {
+        "title": "Not included",
+        "values": [
+          {
+            "title": "Carbon monoxide alarm",
+            "subtitle": "There is no carbon monoxide detector on the property.",
+            "icon": "SYSTEM_NO_DETECTOR_CO2",
+            "available": false
+          },
+          {
+            "title": "Private entrance",
+            "subtitle": "",
+            "icon": "SYSTEM_NO_PRIVATE_ENTRANCE",
+            "available": false
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "1060659586771911271",
+    "coordinates": {
+      "latitude": 10.45762,
+      "longitude": -75.50438
+    },
+    "propertyType": "Entire rental unit",
+    "roomType": "Entire home/apt",
+    "homeTier": 1,
+    "personCapacity": 4,
+    "rating": {
+      "accuracy": 4.8,
+      "checking": 4.68,
+      "cleanliness": 4.88,
+      "communication": 4.8,
+      "location": 4.8,
+      "value": 4.84,
+      "guestSatisfaction": 4.84,
+      "reviewsCount": 25
+    },
+    "title": "Unit 408 - Beautiful Apartment in Cartagena",
+    "subDescription": {
+      "title": "Entire rental unit in La Boquilla, Colombia",
+      "items": [
+        "4 guests",
+        "1 bedroom",
+        "2 beds",
+        "2 baths"
+      ]
+    },
+    "amenities": [
+      {
+        "title": "Bedroom and laundry",
+        "values": [
+          {
+            "title": "Washer",
+            "subtitle": "",
+            "icon": "SYSTEM_WASHER",
+            "available": true
+          },
+          {
+            "title": "Essentials",
+            "subtitle": "Towels, bed sheets, soap, and toilet paper",
+            "icon": "SYSTEM_TOILETRIES",
+            "available": true
+          },
+          {
+            "title": "Bed linens",
+            "subtitle": "",
+            "icon": "SYSTEM_BLANKETS",
+            "available": true
+          },
+          {
+            "title": "Extra pillows and blankets",
+            "subtitle": "",
+            "icon": "SYSTEM_PILLOW",
+            "available": true
+          },
+          {
+            "title": "Room-darkening shades",
+            "subtitle": "",
+            "icon": "SYSTEM_BLACKOUT_SHADES",
+            "available": true
+          },
+          {
+            "title": "Iron",
+            "subtitle": "",
+            "icon": "SYSTEM_IRON",
+            "available": true
+          },
+          {
+            "title": "Safe",
+            "subtitle": "",
+            "icon": "SYSTEM_SAFE",
+            "available": true
+          },
+          {
+            "title": "Clothing storage",
+            "subtitle": "",
+            "icon": "SYSTEM_WARDROBE",
+            "available": true
+          }
+        ]
+      },
+      {
+        "title": "Entertainment",
+        "values": [
+          {
+            "title": "TV",
+            "subtitle": "",
+            "icon": "SYSTEM_TV",
+            "available": true
+          },
+          {
+            "title": "Exercise equipment",
+            "subtitle": "",
+            "icon": "SYSTEM_GYM",
+            "available": true
+          }
+        ]
+      },
+      {
+        "title": "Heating and cooling",
+        "values": [
+          {
+            "title": "Air conditioning",
+            "subtitle": "",
+            "icon": "SYSTEM_SNOWFLAKE",
+            "available": true
+          }
+        ]
+      },
+      {
+        "title": "Home safety",
+        "values": [
+          {
+            "title": "Smoke alarm",
+            "subtitle": "",
+            "icon": "SYSTEM_DETECTOR_SMOKE",
+            "available": true
+          }
+        ]
+      },
+      {
+        "title": "Internet and office",
+        "values": [
+          {
+            "title": "Wifi",
+            "subtitle": "",
+            "icon": "SYSTEM_WI_FI",
+            "available": true
+          }
+        ]
+      },
+      {
+        "title": "Kitchen and dining",
+        "values": [
+          {
+            "title": "Kitchen",
+            "subtitle": "Space where guests can cook their own meals",
+            "icon": "SYSTEM_COOKING_BASICS",
+            "available": true
+          }
+        ]
+      },
+      {
+        "title": "Location features",
+        "values": [
+          {
+            "title": "Beach access – Beachfront",
+            "subtitle": "Guests can enjoy a nearby beach",
+            "icon": "SYSTEM_BEACH",
+            "available": true
+          }
+        ]
+      },
+      {
+        "title": "Outdoor",
+        "values": [
+          {
+            "title": "Sun loungers",
+            "subtitle": "",
+            "icon": "SYSTEM_SUN_DECK",
+            "available": true
+          }
+        ]
+      },
+      {
+        "title": "Parking and facilities",
+        "values": [
+          {
+            "title": "Free parking on premises",
+            "subtitle": "",
+            "icon": "SYSTEM_MAPS_CAR_RENTAL",
+            "available": true
+          },
+          {
+            "title": "Pool",
+            "subtitle": "",
+            "icon": "SYSTEM_POOL",
+            "available": true
+          },
+          {
+            "title": "Hot tub",
+            "subtitle": "",
+            "icon": "SYSTEM_JACUZZI",
+            "available": true
+          }
+        ]
+      },
+      {
+        "title": "Services",
+        "values": [
+          {
+            "title": "Pets allowed",
+            "subtitle": "Assistance animals are always allowed",
+            "icon": "SYSTEM_PETS",
+            "available": true
+          },
+          {
+            "title": "Self check-in",
+            "subtitle": "",
+            "icon": "SYSTEM_KEY",
+            "available": true
+          },
+          {
+            "title": "Keypad",
+            "subtitle": "Check yourself into the home with a door code",
+            "icon": "SYSTEM_BUZZER",
+            "available": true
+          }
+        ]
+      },
+      {
+        "title": "Not included",
+        "values": [
+          {
+            "title": "Exterior security cameras on property",
+            "subtitle": null,
+            "icon": "SYSTEM_NO_SURVEILLANCE",
+            "available": false
+          },
+          {
+            "title": "Dryer",
+            "subtitle": "",
+            "icon": "SYSTEM_NO_DRYER",
+            "available": false
+          },
+          {
+            "title": "Carbon monoxide alarm",
+            "subtitle": "This place may not have a carbon monoxide detector. Reach out to the host with any questions.",
+            "icon": "SYSTEM_NO_DETECTOR_CO2",
+            "available": false
+          },
+          {
+            "title": "Heating",
+            "subtitle": "",
+            "icon": "SYSTEM_NO_HEATER",
+            "available": false
+          },
+          {
+            "title": "Hot water",
+            "subtitle": "",
+            "icon": "SYSTEM_NO_HOT_WATER",
+            "available": false
+          }
+        ]
+      }
+    ]
+  }
+]
