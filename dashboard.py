@@ -6,12 +6,14 @@ import pandas as pd
 import plotly.express as px
 import numpy as np
 import plotly.graph_objects as go
+import scipy.stats as stats
+import plotly.express as px
 
 # Load the datasets from SQLite database
 _conn = sqlite3.connect("airbnb_cartagena.sqlite")
-df_attr = pd.read_sql_query("SELECT * FROM Attributes", _conn)
-df_ts = pd.read_sql_query("SELECT * FROM TimeSeriesRaw", _conn)
-df_ts_interp = pd.read_sql_query("SELECT * FROM TimeSeriesInterpolated", _conn)
+df_attr = pd.read_sql_query("SELECT * FROM Attributes", _conn, dtype={"ID": str})
+df_ts = pd.read_sql_query("SELECT * FROM TimeSeriesRaw", _conn, dtype={"ID": str})
+df_ts_interp = pd.read_sql_query("SELECT * FROM TimeSeriesInterpolated", _conn, dtype={"ID": str})
 _conn.close()
 
 
@@ -21,42 +23,64 @@ This section contains the exploratory data analysis functions for the dashboard.
 -----------------------------------------------------------------------------------------------------------
 """
 
+red = "#7e0d24"  # dark red color for plots
+
 # 1.1 Distribution of Base Fees
-def base_fee_distribution():
+def base_fee_distribution_with_kde():
     """
-    Histogram (with rug) of the Base fee across all listings.
+    Histogram (with rug) of the Base fee across all listings,
+    shown as a density, with an overlaid KDE curve.
     """
+    # Histogram
+    x = df_attr["Base fee"].dropna()
     fig = px.histogram(
-        df_attr,
-        x="Base fee",
+        x=x,
         nbins=50,
-        marginal="rug",
-        title="Distribution of Base Fees",
-        labels={"Base fee": "Base Fee (USD)"},
-        template="plotly_dark"
+        histnorm="probability density",       
+        marginal="box",
+        title="Distribution of Base Fees (w/ KDE)",
+        template="plotly_dark",
+        color_discrete_sequence=[red]
+    )
+    # Kernel Density Estimation (KDE)
+    kde = stats.gaussian_kde(x)
+    x_range = np.linspace(x.min(), x.max(), 200)
+    y_kde = kde(x_range)
+    fig.add_trace(
+        go.Scatter(
+            x=x_range,
+            y=y_kde,
+            mode="lines",
+            name="KDE",
+            line=dict(color="#ffffff", width=2)
+        )
     )
     fig.update_layout(
         xaxis_title="Base Fee (USD)",
-        yaxis_title="Count of Listings"
+        yaxis_title="Density",
+        legend=dict(bgcolor="rgba(0,0,0,0)")
     )
     return fig
 
 # 1.2 Cleaning Fee vs. Base Fee
 def cleaning_vs_base_fee():
     """
-    Scatter of Cleaning fee vs. Base fee, with an OLS regression line.
+    Scatter of Cleaning fee vs. Base fee, with an OLS regression line styled and labeled.
     """
     fig = px.scatter(
         df_attr,
         x="Base fee",
         y="Cleaning fee",
+        marginal_x="violin",
+        marginal_y="violin",
         trendline="ols",
+        trendline_color_override="white",
         title="Cleaning Fee vs. Base Fee",
         labels={"Base fee": "Base Fee (USD)", "Cleaning fee": "Cleaning Fee (USD)"},
-        template="plotly_dark"
+        template="plotly_dark",
+        color_discrete_sequence=[red],
     )
-    # optionally tweak the trendline styling
-    fig.update_traces(marker=dict(size=6, opacity=0.7))
+    fig.update_traces(marker=dict(size=8, opacity=0.85))  
     fig.update_layout(
         xaxis_title="Base Fee (USD)",
         yaxis_title="Cleaning Fee (USD)"
@@ -68,31 +92,18 @@ def ratings_summary():
     """
     Boxplots of each rating category to compare medians and variability.
     """
-    # select only the rating columns
-    rating_cols = [
-        "accuracy_rating",
-        "checking_rating",
-        "cleanliness_rating",
-        "communication_rating",
-        "location_rating",
-        "value_rating",
-        "satisfaction_rating"
-    ]
-    # melt into long form
-    df_long = (
-        df_attr[rating_cols]
-        .rename(columns={
-            "satisfaction_rating": "guestSatisfaction"
-        })
-        .melt(var_name="Rating", value_name="Score")
-    )
+    rating_cols = [c for c in df_attr.columns if c.endswith("_rating")]
+    df_long = df_attr[rating_cols].copy().melt(var_name="Rating", value_name="Score")
     fig = px.box(
         df_long,
         x="Rating",
         y="Score",
+        notched=True,
+        points="suspectedoutliers",
         title="Distribution of Rating Scores by Category",
         labels={"Score": "Rating Score", "Rating": "Category"},
-        template="plotly_dark"
+        template="plotly_dark",
+        color_discrete_sequence=[red]
     )
     fig.update_layout(xaxis_tickangle=-15)
     return fig
@@ -563,6 +574,7 @@ eda_tab = dbc.Tab(
     ]
 )
 
+
 clustering_tab = dbc.Tab(
     label="Clustering",
     children=[
@@ -574,6 +586,7 @@ clustering_tab = dbc.Tab(
         dcc.Graph(id="clustering-graph", figure={}),
     ],
 )
+
 
 tda_tab = dbc.Tab(
     label="Topological Data Analysis",
@@ -588,6 +601,7 @@ tda_tab = dbc.Tab(
         dcc.Graph(id="tda-mapper", figure={}),
     ],
 )
+
 
 extra_tab = dbc.Tab(
     label="Extra",
