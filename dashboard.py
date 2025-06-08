@@ -210,6 +210,50 @@ def price_vs_size_boxplots():
     fig.update_layout(boxmode="group")
     return fig
 
+# 1.7 Price vs. Person Capacity and Beds
+def price_vs_capacity_beds_boxplots():
+    """
+    Boxplots of Base fee grouped by Person capacity and Beds count.
+    """
+    # Create a long format DataFrame for boxplot
+    df_cap = (
+        df_attr[["Base fee", "Person capacity"]]
+        .rename(columns={"Person capacity": "Count"})
+        .assign(Type="Capacity")
+    )
+    df_beds = (
+        df_attr[["Base fee", "Beds"]]
+        .rename(columns={"Beds": "Count"})
+        .assign(Type="Beds")
+    )
+    df_long = pd.concat([df_cap, df_beds], axis=0)
+    df_long["Count"] = df_long["Count"].astype(str)
+
+    # Create figure
+    fig = px.box(
+        df_long,
+        x="Count",
+        y="Base fee",
+        color="Type",
+        points="suspectedoutliers",
+        title="Base Fee by Person Capacity and Beds",
+        labels={
+            "Count": "Count",
+            "Base fee": "Base Fee (Nightly)",
+            "Type": "Dimension"
+        },
+        color_discrete_map={
+            "Capacity": red,
+            "Beds": "#cb1e3b",
+        },
+        category_orders={
+            "Count": sorted(df_long["Count"].unique(), key=lambda x: float(x))
+        },
+        template="plotly_dark"
+    )
+    fig.update_layout(boxmode="group")
+    return fig
+
 # 2.1 Price Availability Timeline
 def price_availability_timeline():
     """
@@ -272,16 +316,19 @@ def top_gap_table():
             {"name": "Listing Name","id": "Name"},
             {"name": "Max Gap (days)","id": "max_nan_gap"},
         ],
-        data=df_top10.to_dict("records"),
+        data=df_top10.to_dict("records"),  # type: ignore
         style_header={
-            "backgroundColor": "#222",
+            "backgroundColor": "#111111",
             "fontWeight": "bold",
-            "color": "white"
+            "color": "#ffffffc4",
+            "fontSize": "12px",
+            "textAlign": "center"
         },
         style_cell={
-            "backgroundColor": "#333",
-            "color": "white",
+            "backgroundColor": "#111111",
+            "color": "#ffffffc4",
             "textAlign": "left",
+            "fontSize": "12px",
             "padding": "5px"
         },
         style_table={"overflowX": "auto"},
@@ -296,7 +343,13 @@ def sample_price_trends():
     # Pick the 6 listings with the most missing values
     df = df_ts.copy()
     df["missing_total"] = df[dates].isna().sum(axis=1)
-    sample_ids = df.nlargest(6, "missing_total")["ID"].tolist()
+    top3_missing = df.nlargest(3, "missing_total")["ID"].tolist()
+    clean3_interp = (
+        df_ts_interp
+        .assign(**{"missing_interp": df_ts_interp[dates].isna().sum(axis=1)})
+        .query("missing_interp == 0").head(3)["ID"].tolist()
+    )
+    sample_ids = top3_missing + clean3_interp
 
     # Melt listings into long format
     df_long = (
@@ -319,11 +372,10 @@ def sample_price_trends():
         title=f"Top {len(sample_ids)} Listings by Total Missing Values",
         labels={"Price": "Price (USD/night)", "Date": "Date"},
         template="plotly_dark",
-        color_discrete_sequence= ["#7e0d24", "#a49e00", "#a800a8", "#00a8a8", "#398503"]
+        color_discrete_sequence=[red]
     )
     fig.update_layout(
         showlegend=False,
-        #height=300 * ((len(sample_ids) - 1) // 3 + 1)
         height=300 * 3,
     )
     fig.for_each_annotation(lambda a: a.update(text=f"ID: {a.text.split('=')[1]}"))
@@ -342,7 +394,13 @@ def compare_raw_vs_interpolated():
     # Pick the 6 listings with the most missing values
     df = df_ts.copy()
     df["missing_total"] = df[dates].isna().sum(axis=1)
-    sample_ids = df.nlargest(6, "missing_total")["ID"].tolist()
+    top3_missing = df.nlargest(3, "missing_total")["ID"].tolist()
+    clean3_interp = (
+        df_ts_interp
+        .assign(missing_interp=lambda d: d[dates].isna().sum(axis=1))
+        .query("missing_interp == 0").head(3)["ID"].tolist()
+    )
+    sample_ids = top3_missing + clean3_interp
 
     # Melt listings into long format
     raw = (
@@ -390,7 +448,6 @@ def compare_raw_vs_interpolated():
     fig.update_layout(
         showlegend=True,
         height=300 * 3,
-        #height=300 * ((len(sample_ids)-1)//3 + 1),
         legend_title_text="Series"
     )
     fig.for_each_annotation(lambda a: a.update(text=f"ID: {a.text.split('=')[1]}"))
@@ -526,10 +583,10 @@ eda_tab = dbc.Tab(
                 dcc.Graph(id="amenity-heatmap", figure=amenity_presence_lollipop()), 
                 width=6
             ),
-            dbc.Col(
+            dbc.Col([
                 dcc.Graph(id="price-vs-size", figure=price_vs_size_boxplots()), 
-                width=6
-            ),
+                dcc.Graph(id="price-vs-capacity-beds", figure=price_vs_capacity_beds_boxplots()),
+            ], width=6),
         ], className="mb-5"),
         dbc.Row([
             dbc.Col(
@@ -548,23 +605,21 @@ eda_tab = dbc.Tab(
         dbc.Row([
             dbc.Col(
                 dcc.Graph(id="sample-price-trends", figure=sample_price_trends()), 
-                width=6
+                width=5
             ),
             dbc.Col(
                 dcc.Graph(id="compare-raw-interp", figure=compare_raw_vs_interpolated()), 
-                width=6
+                width=7
             ),
         ], className="mb-5"),
         dbc.Row([
             dbc.Col(
                 dcc.Graph(id="weekly-price-trend", figure=average_price_trend("W")),
-                width=12
+                width=6
             ),
-        ], className="mb-5"),
-        dbc.Row([
             dbc.Col(
                 dcc.Graph(id="volatility-heatmap", figure=price_volatility_heatmap()), 
-                width=12
+                width=6
             ),
         ], className="mb-5"),
     ]
@@ -626,7 +681,7 @@ app.layout = dbc.Container(
     [
         dbc.NavbarSimple(
             brand="Topological Analysis of Airbnb Price Dynamics in Cartagena",
-            color="dark",
+            color="#222",
             dark=True,
             fluid=True,
         ),
@@ -643,11 +698,11 @@ app.layout = dbc.Container(
                 ],
                 style={"marginTop": "20px"}
             ),
-            style={"backgroundColor": "#222", "color": "white", "padding": "20px"},
+            style={"backgroundColor": "#111111", "color": "white", "padding": "20px"},
         ),
     ],
     fluid=True,
-    style={"padding": "20px"}
+    style={"backgroundColor": "#111111", "padding": "20px"}
 )
 
 if __name__ == "__main__":
