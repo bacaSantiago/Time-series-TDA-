@@ -278,22 +278,7 @@ def price_availability_timeline():
     fig.update_yaxes(range=[0, 100])
     return fig
 
-"""
-# 2.2 Missing-Data Gap Distribution
-def gap_distribution_histogram():
-    #Histogram of max_nan_gap across listings to show how many have big contiguous missing spans.
-    fig = px.histogram(
-        df_ts,
-        x="max_nan_gap",
-        nbins=30,
-        title="Distribution of Maximum Consecutive Missing-Price Gaps",
-        labels={"max_nan_gap": "Max Consecutive Missing Days", "count": "Number of Listings"},
-        template="plotly_dark"
-    )
-    return fig
-"""
-
-# 2.2 Missing-Data Gap Distribution
+# 2.2 Missing-Data Gap Table
 def top_gap_table():
     """
     Returns a Dash DataTable showing the 10 listings
@@ -320,13 +305,13 @@ def top_gap_table():
         style_header={
             "backgroundColor": "#111111",
             "fontWeight": "bold",
-            "color": "#ffffffc4",
+            "color": "#dddddd",
             "fontSize": "12px",
             "textAlign": "center"
         },
         style_cell={
             "backgroundColor": "#111111",
-            "color": "#ffffffc4",
+            "color": "#dddddd",
             "textAlign": "left",
             "fontSize": "12px",
             "padding": "5px"
@@ -534,6 +519,32 @@ def price_volatility_heatmap():
     return fig
 
 
+# 4.1 Map of Base Fee Distribution
+def map_base_fee_density():
+    """
+    Density-map of listing locations, weighted by Base fee.
+    """
+    fig = px.density_map(
+        df_attr,
+        lat="latitude",
+        lon="longitude",
+        z="Base fee",
+        radius=20,
+        hover_name="Name",
+        hover_data=["Base fee", "Property type"],
+        color_continuous_scale="YlOrRd",
+        map_style="carto-darkmatter",
+        zoom=11,
+        title="Cartagena Base Fee Density"
+    )
+    fig.update_layout(
+        margin={"r":0,"t":40,"l":0,"b":0},
+        paper_bgcolor="#111111",   
+        plot_bgcolor="#111111",   
+        font=dict(color="white") 
+    )
+    return fig
+
 
 
 """_Cluster_
@@ -559,31 +570,43 @@ This section contains the functions for the Dash web application.
 eda_tab = dbc.Tab(
     label="Exploratory Data Analysis",
     children=[
-        html.H2("Exploratory Data Analysis", className="text-center mt-4"),
+        html.H4(
+            "Exploratory Data Analysis (EDA)",
+            style={"text-align": "center", "margin-top": "30px", "color": "white", 
+                   "font-weight": "bold", "font-size": "28px"}
+        ),
+        html.P(
+            """
+            In this section we load our three normalized tables (Attributes, TimeSeriesRaw, TimeSeriesInterpolated) 
+            from our SQLite store (populated via our Airbnb web-scraper). We extracted structured data from Airbnb 
+            room pages—including pricing, coordinates, amenities, and ratings for listings in Cartagena. We then 
+            explore nightly base fees, cleaning charges, ratings, property types, amenities and size effects, as 
+            well as the completeness and interpolation of our time-series price data.
+            """,
+            style={"text-align": "center", "margin-bottom": "40px", "color": "#dddddd",
+                "max-width": "1300px", "margin-left": "auto", "margin-right": "auto"}
+        ),
+        html.Hr(style={"margin-bottom": "30px"}),
+
         dbc.Row([
             dbc.Col(
-                dcc.Graph(id="base-fee-dist", figure=base_fee_distribution()),
-                width=6
+                dcc.Graph(id="base-fee-dist", figure=base_fee_distribution()), width=6
             ),
             dbc.Col(
-                dcc.Graph(id="cleaning-vs-base", figure=cleaning_vs_base_fee()),
-                width=6
+                dcc.Graph(id="cleaning-vs-base", figure=cleaning_vs_base_fee()), width=6
             ),
         ], className="mb-5"),
         dbc.Row([
             dbc.Col(
-                dcc.Graph(id="ratings-summary", figure=ratings_summary()), 
-                width=6
+                dcc.Graph(id="ratings-summary", figure=ratings_summary()), width=6
             ),
             dbc.Col(
-                dcc.Graph(id="property-type-counts", figure=property_type_counts()), 
-                width=6
+                dcc.Graph(id="property-type-counts", figure=property_type_counts()), width=6
             ),
         ], className="mb-5"),
         dbc.Row([
             dbc.Col(
-                dcc.Graph(id="amenity-heatmap", figure=amenity_presence_lollipop()), 
-                width=6
+                dcc.Graph(id="amenity-heatmap", figure=amenity_presence_lollipop()), width=6
             ),
             dbc.Col([
                 dcc.Graph(id="price-vs-size", figure=price_vs_size_boxplots()), 
@@ -592,38 +615,37 @@ eda_tab = dbc.Tab(
         ], className="mb-5"),
         dbc.Row([
             dbc.Col(
-                dcc.Graph(id="price-availability", figure=price_availability_timeline()), 
-                width=6
+                dcc.Graph(id="price-availability", figure=price_availability_timeline()), width=6
             ),
             dbc.Col(
                 html.Div([
                     html.H5("Top 10 Listings by Missing-Price Gap",
-                            style={"color": "white", "marginBottom": "10px"}),
+                            style={"color": "white", "marginBottom": "20px"}),
                     top_gap_table()
-                ]),
-                width=6,
+                ]), width=6,
             ),
         ], className="mb-5"),
         dbc.Row([
             dbc.Col(
-                dcc.Graph(id="sample-price-trends", figure=sample_price_trends()), 
-                width=5
+                dcc.Graph(id="sample-price-trends", figure=sample_price_trends()), width=5
             ),
             dbc.Col(
-                dcc.Graph(id="compare-raw-interp", figure=compare_raw_vs_interpolated()), 
-                width=7
+                dcc.Graph(id="compare-raw-interp", figure=compare_raw_vs_interpolated()), width=7
             ),
         ], className="mb-5"),
         dbc.Row([
             dbc.Col(
-                dcc.Graph(id="weekly-price-trend", figure=average_price_trend("W")),
-                width=6
+                dcc.Graph(id="weekly-price-trend", figure=average_price_trend("W")), width=5
             ),
             dbc.Col(
-                dcc.Graph(id="volatility-heatmap", figure=price_volatility_heatmap()), 
-                width=6
+                dcc.Graph(id="volatility-heatmap", figure=price_volatility_heatmap()), width=7
             ),
         ], className="mb-5"),
+        dbc.Row([
+            dbc.Col(
+                dcc.Graph(id="map-base-fee", figure=map_base_fee_density()), width=11
+            ),
+        ], className="mb-5 justify-content-center"),
     ]
 )
 
