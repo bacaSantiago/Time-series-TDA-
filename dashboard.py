@@ -366,6 +366,7 @@ def sample_price_trends():
         y="Price",
         facet_col="ID",
         facet_col_wrap=2,
+        facet_col_spacing=0.1,
         color="ID",
         line_group="ID",
         category_orders={"ID": sample_ids},
@@ -436,6 +437,7 @@ def compare_raw_vs_interpolated():
         line_dash_map={"Raw": "dash", "Interpolated": "solid"},
         color_discrete_map={"Interpolated": red, "Raw": "white"},
         facet_col="ID", facet_col_wrap=2,
+        facet_col_spacing=0.1,
         title="Raw vs. Interpolated Price Series",
         labels={"Price":"Price (USD/night)", "Date":"Date"},
         template="plotly_dark"
