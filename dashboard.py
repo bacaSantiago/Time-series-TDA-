@@ -9,6 +9,12 @@ import plotly.graph_objects as go
 import scipy.stats as stats
 import plotly.express as px
 import re
+import random
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from sklearn.cluster import KMeans, AgglomerativeClustering
+import plotly.figure_factory as ff
+
 
 # Load the datasets from SQLite database
 _conn = sqlite3.connect("airbnb_cartagena.sqlite")
@@ -200,7 +206,7 @@ def price_vs_size_boxplots():
         points="suspectedoutliers",
         color="Type",
         title="Base Fee by Number of Bedrooms and Baths",
-        labels={"Count": "Count", "Base fee": "Base Fee (Nightly)", "Type": "Dimension"},
+        labels={"Count": "Count", "Base fee": "Base Fee (Nightly)", "Type": "Feature"},
         color_discrete_map={
             "Bedrooms": red,
             "Baths": "#cb1e3b"
@@ -240,7 +246,7 @@ def price_vs_capacity_beds_boxplots():
         labels={
             "Count": "Count",
             "Base fee": "Base Fee (Nightly)",
-            "Type": "Dimension"
+            "Type": "Feature"
         },
         color_discrete_map={
             "Capacity": red,
@@ -420,7 +426,7 @@ def compare_raw_vs_interpolated():
         category_orders={"Source": ["Interpolated", "Raw"], "ID": sample_ids},
         line_dash="Source",
         line_dash_map={"Raw": "dash", "Interpolated": "solid"},
-        color_discrete_map={"Interpolated": red, "Raw": "white"},
+        color_discrete_map={"Interpolated": "dddddd", "Raw": red},
         facet_col="ID", facet_col_wrap=2,
         facet_col_spacing=0.1,
         title="Raw vs. Interpolated Price Series",
@@ -519,7 +525,7 @@ def price_volatility_heatmap():
     return fig
 
 
-# 4.1 Map of Base Fee Distribution
+# 3.4 Map of Base Fee Distribution
 def map_base_fee_density():
     """
     Density-map of listing locations, weighted by Base fee.
@@ -552,6 +558,286 @@ def map_base_fee_density():
 This section contains the clustering functions for the dashboard.
 -----------------------------------------------------------------------------------------------------------
 """
+
+df_ts_interp = df_ts_interp.dropna(subset=dates, how="any").reset_index(drop=True)
+
+
+# 4.1.1 PCA + K-Means embedding scatter
+def attribute_pca_kmeans(n_clusters=4):
+    """
+    2D PCA embedding of your listing attributes, colored by K-Means cluster.
+    """
+    # Build feature matrix
+    feat = df_attr.select_dtypes(include=["number", "bool"]).copy()
+    feat = feat.astype({c: "int" for c in feat.select_dtypes("bool").columns})
+    feat.drop(columns=["latitude", "longitude"], errors='ignore', inplace=True)
+    X = StandardScaler().fit_transform(feat)
+    
+    # PCA and K-Means
+    emb = PCA(n_components=2, random_state=0).fit_transform(X)
+    km = KMeans(n_clusters=n_clusters, init='k-means++', random_state=69).fit(emb)
+    labels = km.labels_.astype(str)
+    
+    # Create figure
+    plot_df = pd.DataFrame({
+        "PC1": emb[:,0],
+        "PC2": emb[:,1],
+        "cluster": labels,
+        "Name": df_attr["Name"]
+    })
+    fig = px.scatter(
+        plot_df, x="PC1", y="PC2",
+        color="cluster",
+        hover_name="Name",
+        title=f"PCA (2D) + K-Means (k={n_clusters}) on Listing Attributes",
+        template="plotly_dark",
+        color_discrete_sequence=["#d79c9c", red, "#c71a37", "#ff657f"] 
+    )
+    fig.update_traces(marker=dict(size=8, opacity=0.8))
+    return fig
+
+# 4.1.2 3D PCA + K-Means embedding scatter
+def attribute_pca_kmeans_3d(n_clusters=4):
+    """
+    3D PCA embedding of your listing attributes, colored by K-Means cluster.
+    """
+    # Build feature matrix
+    feat = df_attr.select_dtypes(include=["number", "bool"]).copy()
+    feat = feat.astype({c: "int" for c in feat.select_dtypes("bool").columns})
+    feat.drop(columns=["latitude", "longitude"], errors='ignore', inplace=True)
+    X = StandardScaler().fit_transform(feat)
+
+    # PCA and K-Means
+    emb = PCA(n_components=3, random_state=0).fit_transform(X)
+    km = KMeans(n_clusters=n_clusters, init='k-means++', random_state=0).fit(emb)
+    labels = km.labels_.astype(str)
+
+    # Create figure
+    plot_df = pd.DataFrame({
+        "PC1": emb[:, 0],
+        "PC2": emb[:, 1],
+        "PC3": emb[:, 2],
+        "cluster": labels,
+        "Name": df_attr["Name"]
+    })
+    fig = px.scatter_3d(
+        plot_df,
+        x="PC1", y="PC2", z="PC3",
+        color="cluster",
+        hover_name="Name",
+        title=f"3D PCA + K-Means (k={n_clusters}) on Listing Attributes",
+        template="plotly_dark",
+        color_discrete_sequence=["#d79c9c", red, "#c71a37", "#ff657f"]
+    )
+    fig.update_traces(marker=dict(size=5, opacity=0.8))
+    fig.update_layout(
+        scene=dict(
+            xaxis_title="PC1",
+            yaxis_title="PC2",
+            zaxis_title="PC3",
+        ),
+        width=1100, height=500
+    )
+    return fig
+
+# 4.2.1 Dendrogram of Time-Series
+def timeseries_dendrogram():
+    """
+    Agglomerative clustering dendrogram (Euclidean) of each listing's 
+    interpolated price series, after dropping any series with NaNs.
+    """
+    # Build the matrix (listings × days)
+    mat = df_ts_interp.set_index("ID")[dates].astype(float).values
+    ids = df_ts_interp["ID"].astype(str).tolist()
+
+    # Create the figure
+    fig = ff.create_dendrogram(
+        mat,
+        orientation="left",
+        labels=ids,
+        colorscale=px.colors.sequential.amp[::-1]
+    )
+    fig.update_layout(
+        template="plotly_dark",
+        width=800,
+        height=1200,
+        title="Hierarchical Clustering Dendrogram of Price Time Series",
+        xaxis_title="Distance",
+        yaxis_title="Listing ID"
+    )
+
+    return fig
+
+# 4.2.2 Cluster-Centroid Time Series
+def timeseries_cluster_centroids(n_clusters=4):
+    """
+    For each cluster (Agglomerative, Euclidean), plot the average daily price curve.
+    """
+    # Build the matrix (listings × days) and perform clustering
+    mat = df_ts_interp.set_index("ID")[dates].astype(float).values
+    labels = AgglomerativeClustering(n_clusters=n_clusters, metric="euclidean", linkage="ward").fit_predict(mat)
+    
+    # Create a DataFrame with the cluster labels
+    df_long = (
+        df_ts_interp.assign(cluster=labels)
+        .melt(
+            id_vars=["ID", "cluster"],
+            value_vars=dates,
+            var_name="Date",
+            value_name="Price"
+        )
+    )
+    df_long["Date"] = pd.to_datetime(df_long["Date"], dayfirst=True, format="%d/%m/%Y")
+    avg = (
+        df_long
+        .groupby(["cluster", "Date"])["Price"]
+        .mean()
+        .reset_index()
+    )
+
+    # Plot the average price time series for each cluster
+    avg["cluster"] = avg["cluster"].astype(str)
+    fig = px.line(
+        avg,
+        x="Date", y="Price",
+        color="cluster",
+        title=f"Cluster Centroid Time Series (k={n_clusters})",
+        labels={"cluster":"Cluster", "Price":"Avg. Price (USD/night)"},
+        template="plotly_dark",
+        color_discrete_sequence=["#d79c9c", red, "#c71a37", "#ff657f"] 
+    )
+    fig.update_traces(line=dict(width=2))
+    return fig
+
+# 4.3.0 Compute Volatility Features
+def compute_volatility_features(spike_thresh=0.1):
+    """
+    For each listing (row), compute:
+      - std_dev:  standard deviation of (price - mean)/mean
+      - max_dev:  maximum absolute deviation
+      - spike_freq: fraction of days with |dev| > spike_thresh
+    Returns a DataFrame indexed by ID.
+    """
+    # Build deviation matrix
+    mat = df_ts_interp.set_index("ID")[dates].astype(float)
+    row_means = mat.mean(axis=1)
+    dev = mat.sub(row_means, axis=0).div(row_means, axis=0)
+
+    # Extract features
+    std_dev    = dev.std(axis=1)
+    max_dev    = dev.abs().max(axis=1)
+    spike_freq = (dev.abs() > spike_thresh).sum(axis=1) / dev.shape[1]
+    
+    feats = pd.DataFrame({
+        "std_dev":    std_dev,
+        "max_dev":    max_dev,
+        "spike_freq": spike_freq
+    }).round(3)
+    return feats
+
+# 4.3.1 K-Means Clustering on Volatility Features
+def cluster_volatility(feats, k=4):
+    """
+    Fit KMeans on the features DataFrame and return
+    a new DataFrame with a 'cluster' column (as string).
+    """
+    km = KMeans(n_clusters=k, random_state=0)
+    labels = km.fit_predict(feats)
+    df = feats.copy()
+    df["cluster"] = labels.astype(str)
+    return df
+
+# 4.3.2 Scatter-Matrix of Features Colored by Cluster
+def volatility_scatter_matrix(df_vol, k=4):
+    """
+    Pair-plot of (std_dev, max_dev, spike_freq) colored by KMeans cluster.
+    """
+    df = df_vol.reset_index().rename(columns={"index": "ID"})
+    fig = px.scatter_matrix(
+        df,
+        dimensions=["std_dev", "max_dev", "spike_freq"],
+        color="cluster",
+        title=f"Volatility Features Scatter-Matrix (k={k})",
+        labels={
+            "std_dev": "Std Dev",
+            "max_dev": "Max Dev",
+            "spike_freq": "Spike Freq",
+            "cluster": "Cluster"
+        },
+        template="plotly_dark",
+        color_discrete_sequence=["#d79c9c", red, "#c71a37", "#ff657f"] 
+    )
+    fig.update_traces(diagonal_visible=False)
+    return fig
+
+# 4.3.3 Boxplots of Each Feature by Cluster
+def volatility_boxplots(df_vol, k=4):
+    """
+    Boxplots of each volatility metric, grouped by cluster.
+    """
+    df_long = (
+        df_vol
+        .reset_index()
+        .melt(id_vars=["ID", "cluster"],
+              value_vars=["std_dev", "max_dev", "spike_freq"],
+              var_name="Metric",
+              value_name="Value")
+    )
+    fig = px.box(
+        df_long,
+        x="Metric",
+        y="Value",
+        color="cluster",
+        title=f"Volatility Metrics by Cluster (k={k})",
+        labels={"Value": "Value", "Metric": "Volatility Metric", "cluster": "Cluster"},
+        template="plotly_dark",
+        color_discrete_sequence=["#d79c9c", red, "#c71a37", "#ff657f"]
+    )
+    fig.update_layout(boxmode="group")
+    return fig
+
+# 4.4.0 Extract the binary amenity matrix and cluster
+def cluster_by_amenities(k=4):
+    """
+    Fit KMeans on the amenity matrix, returning the amenity matrix
+    and a Series of cluster labels (as strings).
+    """
+    to_keep = [
+        "Keypad", "Lock on door", "Smoke detector", "Security cameras", "AC", "Heating", 
+        "Patio or balcony", "Stove", "Elevator", "Refrigerator", "Kitchen", "Wifi", 
+        "TV", "Jacuzzi", "Carport", "Hot water", 
+    ]
+    am = df_attr[to_keep].copy().astype(int).set_index(df_attr["ID"])
+    km = KMeans(n_clusters=k, random_state=0, init="k-means++")
+    labels = pd.Series(km.fit_predict(am), index=am.index).astype(str)
+    return am, labels
+
+# 4.4.1 Stacked‐Bar of Amenity Proportions by Cluster
+def amenity_cluster_bars(am, labels):
+    """
+    For each cluster, compute % of listings that have each amenity, then
+    draw a stacked bar chart (amenities on the legend).
+    """
+    df = am.copy()
+    df["cluster"] = labels
+    prop = df.groupby("cluster").mean().reset_index().melt(
+        id_vars="cluster", var_name="amenity", value_name="pct"
+    ) 
+    hot_colors = px.colors.sample_colorscale("amp_r", np.linspace(0, 0.7, prop["amenity"].nunique()))
+    #random.shuffle(hot_colors)
+    fig = px.bar(
+        prop,
+        x="cluster",
+        y="pct",
+        color="amenity",
+        title="Amenity % by Cluster",
+        labels={"cluster":"Cluster", "pct":"% Listings", "amenity":"Amenity"},
+        template="plotly_dark",
+        color_discrete_sequence=hot_colors
+        
+    )
+    fig.update_layout(barmode="stack", xaxis_title="Cluster")
+    return fig
 
 
 """_TDA_
@@ -649,6 +935,9 @@ eda_tab = dbc.Tab(
     ]
 )
 
+
+feats = compute_volatility_features()
+df_vol = cluster_volatility(feats)
 
 clustering_tab = dbc.Tab(
     label="Clustering",
