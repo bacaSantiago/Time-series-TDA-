@@ -6,6 +6,7 @@ import pandas as pd
 import plotly.express as px
 import numpy as np
 import plotly.graph_objects as go
+from plotly.subplots import make_subplots
 import scipy.stats as stats
 import plotly.express as px
 import re
@@ -14,8 +15,17 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans, AgglomerativeClustering
 import plotly.figure_factory as ff
+from sklearn.linear_model import LinearRegression
+from sklearn.feature_selection import VarianceThreshold
+from scipy.spatial.distance import pdist, squareform
+import umap
+import gudhi as gd
+
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=FutureWarning)
 
 
 # Load the datasets from SQLite database
@@ -435,7 +445,7 @@ def compare_raw_vs_interpolated():
         labels={"Price":"Price (USD/night)", "Date":"Date"},
         template="plotly_dark"
     )
-    dashed_traces = [t for t in fig.data if t.line.dash == "dash"]
+    dashed_traces = [t for t in fig.data if t.line.dash == "dash"] 
     solid_traces  = [t for t in fig.data if t.line.dash == "solid"]
     fig.data = tuple(dashed_traces + solid_traces)
     fig.update_traces(
@@ -848,11 +858,328 @@ This section contains the topological data analysis functions for the dashboard.
 -----------------------------------------------------------------------------------------------------------
 """
 
+# 5.1 Build UMAP and Distance Matrix
+def build_umap_and_distances():
+    # Drop some columns that are not needed
+    df_temp = df_attr.copy()
+    df_temp=df_temp[[
+    'Name', 'Host', 'Base fee', 'Cleaning fee', 'URL', 'ID', 'latitude',
+    'longitude', 'Property type', 'Person capacity', 'accuracy_rating',
+    'checking_rating', 'cleanliness_rating', 'communication_rating',
+    'location_rating', 'value_rating', 'satisfaction_rating', 'Reviews',
+    'Bedrooms', 'Beds', 'Baths', 'City skyline view', 'Beach view',
+    'Sea/Lake view', 'Hot water', 'Jacuzzi', 'Shared pool', 'Shared gym',
+    'Patio or balcony', 'Outdoor furniture', 'Outdoor playground',
+    'Elevator', 'Carport', 'Dedicated workspace', 'AC', 'Heating', 'TV',
+    'Cable TV', 'Wifi', 'Laundry service', 'Kitchen', 'Dining table',
+    'Microwave', 'Dishes and silverware', 'Refrigerator', 'Stove', 'Keypad',
+    'Washer', 'Pets allowed', 'Crib', 'Security cameras', 'Lock on door']]
+
+    # Melt time series data to long format
+    df_prices = (
+        df_ts_interp.copy()
+        .melt(id_vars="ID", value_vars=dates, var_name="Date", value_name="Value")
+        .assign(Date=lambda d: pd.to_datetime(d["Date"], dayfirst=True))
+    )
+
+    # Summarize per‐listing log‐price mean, std, and trend
+    def summarize(group):
+        #y = np.log1p(group["Value"].replace(0, np.nan))  # Avoid log(0)
+        y = np.log1p(group["Value"])
+        #y = group["Value"]
+        days = (group["Date"] - group["Date"].min()).dt.days.values.reshape(-1,1)
+        lr = LinearRegression().fit(days, y) if len(np.unique(days))>1 else None
+        return pd.Series({
+            "price_mean": y.mean(),
+            "price_std":  y.std(),
+            "price_trend": lr.coef_[0] if lr else 0.0
+        })
+    df_price_summary = (
+        df_prices
+        .groupby("ID", group_keys=False)
+        .apply(summarize)
+    )
+    df_merged = df_attr.merge(df_price_summary, on="ID")
+
+    # Filter out near‐constant / low‐variance features
+    selector = VarianceThreshold(threshold=0.1)
+    X = selector.fit_transform(df_merged.select_dtypes("number"))
+    to_keep = df_merged.select_dtypes("number").columns[selector.get_support()]
+
+    # Drop highly correlated (>0.9)
+    df_reduced = pd.DataFrame(X, columns=to_keep)
+    corr = df_reduced.corr().abs()
+    upper = corr.where(np.triu(np.ones(corr.shape, dtype=bool), k=1))
+    to_drop = [c for c in upper.columns if (upper[c] > 0.9).any()]
+    df_space = df_reduced.drop(columns=to_drop)
+
+    # Scale + UMAP embedding
+    X_scaled = StandardScaler().fit_transform(df_space)
+    umap_proj = umap.UMAP(n_components=3, n_neighbors=30, min_dist=0.1, random_state=69).fit_transform(X_scaled)
+
+    # Build distance matrix and UMAP space DataFrame
+    df_space = df_merged.loc[df_space.index, ['ID','Base fee']].reset_index(drop=True)
+    df_space[['UMAP1','UMAP2','UMAP3']] = umap_proj
+    dist_matrix = squareform(pdist(df_space.drop(columns=["ID", 'Base fee']).values, metric="euclidean"))
+    df_dist = pd.DataFrame(dist_matrix, index=df_space['ID'], columns=df_space['ID'])
+    
+    return df_space, df_dist, dist_matrix
+
+# 5.2 UMAP Space Scatter Plot
+def umap_space(df_space):
+    """
+    3D plot of the UMAP embedded space.
+    """
+    fig = px.scatter_3d(
+        df_space,
+        x="UMAP1", y="UMAP2", z="UMAP3",
+        color='Base fee',
+        hover_name="ID",
+        color_continuous_scale="amp",
+        opacity=0.85,
+        title="Embedded UMAP Space",
+        template="plotly_dark"
+    )
+    return fig
+
+# 5.3 Vietoris-Rips Complex on UMAP Space
+def vietoris_rips_3d(df_space, simplex_tree):
+    """
+    3D visualization of the Vietoris-Rips complex on the UMAP embedding.
+    """
+    coords = df_space[['UMAP1', 'UMAP2', 'UMAP3']].values
+    ids = df_space['ID'].astype(str).tolist()
+
+    # Build all 1-simplex edges
+    edge_traces = []
+    for simplex, _ in simplex_tree.get_skeleton(1):
+        if len(simplex) == 2:
+            i, j = simplex
+            x0, y0, z0 = coords[i]
+            x1, y1, z1 = coords[j]
+            edge_traces.append(go.Scatter3d(
+                x=[x0, x1, None],
+                y=[y0, y1, None],
+                z=[z0, z1, None],
+                mode='lines',
+                line=dict(color='white', width=1),
+                hoverinfo='none',
+                showlegend=False
+            ))
+
+    # Point cloud trace
+    point_trace = go.Scatter3d(
+        x=df_space['UMAP1'],
+        y=df_space['UMAP2'],
+        z=df_space['UMAP3'],
+        mode='markers',
+        marker=dict(
+            size=4,
+            color=df_space['Base fee'],
+            opacity=0.85,
+            colorscale='amp',
+            cmin=40,
+            cmax=120,
+        ),
+        text=ids,
+        name='Points'
+    )
+
+    # Create the figure
+    fig = go.Figure(data=[point_trace] + edge_traces)
+    fig.update_layout(
+        title='Vietoris-Rips Complex on UMAP Embedding',
+        template='plotly_dark',
+        scene=dict(
+            xaxis_title='UMAP1',
+            yaxis_title='UMAP2',
+            zaxis_title='UMAP3'
+        ),
+    )
+    return fig
+
+# 5.4 Projections of the Vietoris-Rips Complex
+def rips_projections(df_space, simplex_tree):
+    """
+    Show XY, XZ and YZ projections of the Vietoris-Rips complex on the UMAP embedding.
+    """
+    coords = df_space[["UMAP1", "UMAP2", "UMAP3"]].values
+    ids = df_space["ID"].astype(str).tolist()
+
+    # Prepare subplot grid and scatter plot parameters
+    fig = make_subplots(
+        rows=1, cols=3,
+        subplot_titles=("UMAP1 vs UMAP2", "UMAP1 vs UMAP3", "UMAP2 vs UMAP3"),
+        horizontal_spacing=0.05
+    )
+    scatter_kwargs = dict(
+        mode="markers",
+        xaxis=None, yaxis=None,
+        marker=dict(size=6, color=df_space["Base fee"], showscale=True, 
+                    colorbar=dict(title="Base fee",  outlinewidth=0, outlinecolor="rgba(0,0,0,0)"), 
+                    colorscale="amp", cmin=40, cmax=125),
+        hovertext=ids,
+        hoverinfo="text",
+        showlegend=False 
+    )
+
+    # The three projection pairs
+    dims = [(0,1), (0,2), (1,2)]
+    for col, (i, j) in enumerate(dims, start=1):
+        # Add the edges for the current projection
+        for simplex, _ in simplex_tree.get_skeleton(1):
+            if len(simplex) == 2:
+                a, b = simplex
+                fig.add_trace(
+                    go.Scatter(
+                        x=[coords[a,i], coords[b,i], None],
+                        y=[coords[a,j], coords[b,j], None],
+                        mode="lines",
+                        line=dict(color="gray", width=1),
+                        hoverinfo="none",
+                        showlegend=False
+                    ),
+                    row=1, col=col
+                )
+        # Add the scatter points for the current projection
+        fig.add_trace(
+            go.Scatter(
+                x=coords[:,i],
+                y=coords[:,j],
+                **scatter_kwargs
+            ),
+            row=1, col=col
+        )
+    fig.update_layout(
+        title="Vietoris-Rips Complex Projections",
+        template="plotly_dark",
+        height=500, width=1200,
+    )
+    for idx in range(1, 4):
+        fig.update_xaxes(matches=None, row=1, col=idx)
+        fig.update_yaxes(matches=None, row=1, col=idx)
+
+    return fig
+
+# 5.5 Persistence Diagram and Barcode
+def persistence_and_barcode(dist_matrix, max_edge=1.0):
+    """
+    Compute Vietoris-Rips persistence and plot the persistence diagram and barcode.
+    """
+    # Build Rips complex and compute persistence up to dimension 2
+    rips = gd.RipsComplex(distance_matrix=dist_matrix, max_edge_length=max_edge) #type: ignore
+    st = rips.create_simplex_tree(max_dimension=4)
+    st.compute_persistence()
+    pairs = st.persistence()
+
+    # Group (birth, death) by homology dimension
+    dims = {}
+    for dim, (b, d) in pairs:
+        if d == float('inf'):
+            d = max_edge
+        dims.setdefault(dim, []).append((b, d))
+
+    colors = {0: red, 1: "#ff657f", 2: "#fac9c9"}
+    fig = make_subplots(
+        rows=1, cols=2,
+        subplot_titles=("Persistence Diagram", "Barcode"),
+        horizontal_spacing=0.1
+    )
+
+    # Persistence diagram
+    for dim, bd in dims.items():
+        births, deaths = zip(*bd)
+        fig.add_trace(
+            go.Scatter(
+                x=births, y=deaths, mode="markers",
+                marker=dict(color=colors.get(dim, "gray"), size=9, opacity=0.85),
+                name=f"H{dim}", legendgroup=str(dim)
+            ),
+            row=1, col=1
+        )
+    # Diagonal
+    fig.add_trace(
+        go.Scatter(
+            x=[0, max_edge], y=[0, max_edge], mode="lines",
+            line=dict(color="white", dash="dash"), showlegend=False
+        ),
+        row=1, col=1
+    )
+
+    # Barcode
+    y = 0
+    for dim, bd in dims.items():
+        for b, d in bd:
+            fig.add_trace(
+                go.Scatter(
+                    x=[b, d], y=[y, y], mode="lines",
+                    line=dict(color=colors.get(dim, "gray"), width=4),
+                    showlegend=False
+                ),
+                row=1, col=2
+            )
+            y += 1
+
+    fig.update_xaxes(title_text="Birth", row=1, col=1)
+    fig.update_yaxes(title_text="Death", row=1, col=1)
+    fig.update_xaxes(title_text="Filtration", row=1, col=2)
+    fig.update_yaxes(visible=False, row=1, col=2)
+    fig.update_layout(
+        title="Persistent Homology: Diagram & Barcode",
+        template="plotly_dark",
+        width=1000, height=600,
+    )
+    return fig
+
+# 5.6 Betti Number Evolution
+def betti_evolution(distance_matrix, edge_lengths=np.linspace(0.1, 1.1, 100), max_dim=2):
+    """
+    Compute and plot Betti numbers (H₀, H₁, … H_max_dim) 
+    for a Vietoris-Rips complex as the max-edge threshold varies.
+    """
+    # For each threshold, build Rips complex and read off its Betti numbers
+    records = []
+    for eps in edge_lengths:
+        st = (
+            gd.RipsComplex(distance_matrix=distance_matrix, max_edge_length=eps) #type: ignore
+              .create_simplex_tree(max_dimension=max_dim + 1)
+        )
+        st.compute_persistence()
+        bettis = st.betti_numbers()
+        # pad with zeros if some dimensions are missing
+        bettis += [0] * (max_dim + 1 - len(bettis))
+        records.append((eps, *bettis[: max_dim + 1]))
+    cols = ["epsilon"] + [f"H{d}" for d in range(max_dim + 1)]
+    df = pd.DataFrame(records, columns=cols)
+    df_long = df.melt(id_vars="epsilon", var_name="Homology dim", value_name="Count")
+
+    # Create the line plot
+    fig = px.line(
+        df_long,
+        x="epsilon",
+        y="Count",
+        color="Homology dim",
+        title="Evolution of Betti Numbers vs. Rips Scale",
+        labels={"epsilon": "Max edge length", "Count": "Betti count"},
+        color_discrete_map={"H0": red, "H1": "#ff657f", "H2": "#d79c9c"},
+        template="plotly_dark"
+    )
+    fig.update_layout(
+        font=dict(color="white"),
+        legend_title_text="k-th homology group",
+    )
+    return fig
+
+
+
 """_Classification_
 -----------------------------------------------------------------------------------------------------------
 This section contains the classification functions for the dashboard.
 -----------------------------------------------------------------------------------------------------------
 """
+
+
+
 
 """_Dash_
 -----------------------------------------------------------------------------------------------------------
@@ -942,6 +1269,7 @@ eda_tab = dbc.Tab(
     ]
 )
 
+
 df_ts_interp = df_ts_interp.dropna(subset=dates, how="any").reset_index(drop=True)
 feats = compute_volatility_features()
 df_vol = cluster_volatility(feats)
@@ -996,18 +1324,54 @@ clustering_tab = dbc.Tab(
 )
 
 
+df_space, df_dist, dist_matrix = build_umap_and_distances()
+#distance_matrix = df_dist.values
+rips_complex = gd.RipsComplex(distance_matrix=df_dist.values, max_edge_length=0.6) #type: ignore
+simplex_tree = rips_complex.create_simplex_tree(max_dimension=3)
+
 tda_tab = dbc.Tab(
     label="Topological Data Analysis",
     children=[
-        html.H2("Topological Data Analysis", className="text-center mt-4"),
-        html.P(
-            "Persistent homology diagrams, Mapper graph visualizations, "
-            "and topological summaries.",
-            className="text-center mb-4"
+        html.H4(
+            "Topological Data Analysis (TDA)",
+            style={"text-align": "center", "margin-top": "30px", "color": "white", 
+                   "font-weight": "bold", "font-size": "28px"}
         ),
-        dcc.Graph(id="tda-persistence", figure={}),
-        dcc.Graph(id="tda-mapper", figure={}),
-    ],
+        html.P(
+            """
+            In this section we perform topological data analysis (TDA) on the UMAP embedding of our Airbnb listings.
+            We visualize the Vietoris-Rips complex, compute persistent homology, and analyze Betti numbers.
+            We explore the UMAP space, projections of the Vietoris-Rips complex, and the evolution of Betti numbers.
+            We also visualize the persistence diagram and barcode to understand the topological features of the data.
+            """,
+            style={"text-align": "center", "margin-bottom": "40px", "color": "#dddddd",
+                "max-width": "1300px", "margin-left": "auto", "margin-right": "auto"}
+        ),
+        html.Hr(style={"margin-bottom": "30px"}),
+
+
+        dbc.Row([
+            dbc.Col(
+                dcc.Graph(id="umap-space", figure=umap_space(df_space)), width=6
+            ),
+            dbc.Col(
+                dcc.Graph(id="vietoris-rips-3d", figure=vietoris_rips_3d(df_space, simplex_tree)), width=6
+            ),
+        ], className="mb-5"),
+        dbc.Row([
+            dbc.Col(
+                dcc.Graph(id="rips-projections", figure=rips_projections(df_space, simplex_tree)), width=10
+            ),
+        ], className="mb-5 justify-content-center"),
+        dbc.Row([
+            dbc.Col([
+                dcc.Graph(id="persistence-and-barcode", figure=persistence_and_barcode(dist_matrix)), 
+            ], width=8),
+            dbc.Col([
+                dcc.Graph(id="betti-evolution", figure=betti_evolution(dist_matrix)), 
+            ], width=4),
+        ], className="mb-5")
+    ]
 )
 
 
