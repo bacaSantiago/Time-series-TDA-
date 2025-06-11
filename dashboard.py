@@ -14,6 +14,8 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.decomposition import PCA
 from sklearn.cluster import KMeans, AgglomerativeClustering
 import plotly.figure_factory as ff
+import warnings
+warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
 # Load the datasets from SQLite database
@@ -147,7 +149,7 @@ def amenity_presence_lollipop():
     """
     Lollipop chart of percentage of listings that offer each amenity.
     """
-    pct = (df_attr.iloc[:, 21:].mean() * 100).round(1).sort_values()
+    pct = (df_attr.iloc[:, 21:].mean() * 100).round(1).sort_values(ascending=False)
     fig = go.Figure([
         go.Scatter(
             x=pct.values,
@@ -179,7 +181,7 @@ def amenity_presence_lollipop():
         xaxis_title="% of Listings",
         yaxis_title="Amenity",
         yaxis=dict(autorange='reversed'),
-        height=800,
+        height=870,
         margin=dict(l=200, r=40, t=80, b=40)
     )
     return fig
@@ -278,9 +280,9 @@ def price_availability_timeline():
         y="% Available",
         title="Daily % of Listings with a Valid Price",
         template="plotly_dark",
-        color_discrete_sequence=[red]
+        color_discrete_sequence=[red],
     )
-    fig.update_traces(line=dict(width=3))
+    fig.update_traces(line=dict(width=3), fill="tozeroy")
     fig.update_yaxes(range=[0, 100])
     return fig
 
@@ -423,20 +425,26 @@ def compare_raw_vs_interpolated():
         df_long,
         x="Date", y="Price",
         color="Source",
-        category_orders={"Source": ["Interpolated", "Raw"], "ID": sample_ids},
+        category_orders={"Source": ["Raw", "Interpolated"], "ID": sample_ids},
         line_dash="Source",
-        line_dash_map={"Raw": "dash", "Interpolated": "solid"},
-        color_discrete_map={"Interpolated": "dddddd", "Raw": red},
+        line_dash_map={"Raw": "solid", "Interpolated": "dash"},
+        color_discrete_map={"Raw": red, "Interpolated": "#dddddd", },
         facet_col="ID", facet_col_wrap=2,
         facet_col_spacing=0.1,
         title="Raw vs. Interpolated Price Series",
         labels={"Price":"Price (USD/night)", "Date":"Date"},
         template="plotly_dark"
     )
+    dashed_traces = [t for t in fig.data if t.line.dash == "dash"]
+    solid_traces  = [t for t in fig.data if t.line.dash == "solid"]
+    fig.data = tuple(dashed_traces + solid_traces)
     fig.update_traces(
         selector=dict(name="Raw"),
         line=dict(width=2),
-        opacity=0.8
+    )
+    fig.update_traces(
+        selector=dict(name="Interpolated"),
+        line=dict(width=2, dash="5px,2px")
     )
     fig.update_layout(
         showlegend=True,
@@ -446,7 +454,6 @@ def compare_raw_vs_interpolated():
     fig.for_each_annotation(lambda a: a.update(text=f"ID: {a.text.split('=')[1]}"))
     fig.update_xaxes(matches=None)
     fig.update_yaxes(matches=None)
-
     return fig
 
 # 3.2 Weekly/Monthly Average Price Trends
@@ -559,9 +566,6 @@ This section contains the clustering functions for the dashboard.
 -----------------------------------------------------------------------------------------------------------
 """
 
-df_ts_interp = df_ts_interp.dropna(subset=dates, how="any").reset_index(drop=True)
-
-
 # 4.1.1 PCA + K-Means embedding scatter
 def attribute_pca_kmeans(n_clusters=4):
     """
@@ -635,8 +639,7 @@ def attribute_pca_kmeans_3d(n_clusters=4):
             xaxis_title="PC1",
             yaxis_title="PC2",
             zaxis_title="PC3",
-        ),
-        width=1100, height=500
+        )
     )
     return fig
 
@@ -660,12 +663,11 @@ def timeseries_dendrogram():
     fig.update_layout(
         template="plotly_dark",
         width=800,
-        height=1200,
+        height=1350,
         title="Hierarchical Clustering Dendrogram of Price Time Series",
         xaxis_title="Distance",
         yaxis_title="Listing ID"
     )
-
     return fig
 
 # 4.2.2 Cluster-Centroid Time Series
@@ -846,6 +848,11 @@ This section contains the topological data analysis functions for the dashboard.
 -----------------------------------------------------------------------------------------------------------
 """
 
+"""_Classification_
+-----------------------------------------------------------------------------------------------------------
+This section contains the classification functions for the dashboard.
+-----------------------------------------------------------------------------------------------------------
+"""
 
 """_Dash_
 -----------------------------------------------------------------------------------------------------------
@@ -892,7 +899,7 @@ eda_tab = dbc.Tab(
         ], className="mb-5"),
         dbc.Row([
             dbc.Col(
-                dcc.Graph(id="amenity-heatmap", figure=amenity_presence_lollipop()), width=6
+                dcc.Graph(id="amenity-lollipop", figure=amenity_presence_lollipop()), width=6
             ),
             dbc.Col([
                 dcc.Graph(id="price-vs-size", figure=price_vs_size_boxplots()), 
@@ -935,20 +942,57 @@ eda_tab = dbc.Tab(
     ]
 )
 
-
+df_ts_interp = df_ts_interp.dropna(subset=dates, how="any").reset_index(drop=True)
 feats = compute_volatility_features()
 df_vol = cluster_volatility(feats)
+am, am_labels = cluster_by_amenities()
 
 clustering_tab = dbc.Tab(
     label="Clustering",
     children=[
-        html.H2("Clustering Analysis", className="text-center mt-4"),
-        html.P(
-            "K-Means, hierarchical or time-series clustering results go here.",
-            className="text-center mb-4"
+        html.H4(
+            "Clustering",
+            style={"text-align": "center", "margin-top": "30px", "color": "white", 
+                   "font-weight": "bold", "font-size": "28px"}
         ),
-        dcc.Graph(id="clustering-graph", figure={}),
-    ],
+        html.P(
+            """
+            In this section we perform clustering on our Airbnb listings using various features.
+            We explore K-Means clustering on listing attributes, PCA embeddings,
+            hierarchical clustering of time-series price data, and clustering based on volatility features.
+            We also analyze amenity presence and clustering, and visualize the results using scatter plots,
+            dendrograms, and bar charts.
+            """,
+            style={"text-align": "center", "margin-bottom": "40px", "color": "#dddddd",
+                "max-width": "1300px", "margin-left": "auto", "margin-right": "auto"}
+        ),
+        html.Hr(style={"margin-bottom": "30px"}),
+
+
+        dbc.Row([
+            dbc.Col(
+                dcc.Graph(id="attribute-pca-kmeans", figure=attribute_pca_kmeans()), width=6
+            ),
+            dbc.Col(
+                dcc.Graph(id="attribute-pca-kmeans-3d", figure=attribute_pca_kmeans_3d()), width=6
+            ),
+        ], className="mb-5"),
+        dbc.Row([
+            dbc.Col(
+                dcc.Graph(id="timeseries-dendogram", figure=timeseries_dendrogram()), width=6
+            ),
+            dbc.Col([
+                dcc.Graph(id="timeseries-cluster-centroids", figure=timeseries_cluster_centroids()), 
+                dcc.Graph(id="volatility-scatter-matrix", figure=volatility_scatter_matrix(df_vol)), 
+                dcc.Graph(id="volatilily-boxplots", figure=volatility_boxplots(df_vol)),
+            ], width=6),
+        ], className="mb-5"), 
+        dbc.Row([
+            dbc.Col(
+                dcc.Graph(id="amenity_cluster", figure=amenity_cluster_bars(am, am_labels)), width=10
+            ),
+        ], className="mb-5 justify-content-center")
+    ]
 )
 
 
@@ -1004,7 +1048,7 @@ app.layout = dbc.Container(
                 [
                     html.Hr(),
                     html.P(
-                        "© 2025 Cartagena Airbnb TDA Project | Santiago Baca", 
+                        "© 2025 Cartagena Airbnb TDA Project | Santiago Baca & Edson Álvarez", 
                         className="text-center text-muted",
                         style={"fontWeight": "bold", "fontSize": "16px", "marginBottom": "5px"}
                     ),
