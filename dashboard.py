@@ -643,7 +643,7 @@ def attribute_pca_kmeans_3d(n_clusters=4):
         template="plotly_dark",
         color_discrete_sequence=["#d79c9c", red, "#c71a37", "#ff657f"]
     )
-    fig.update_traces(marker=dict(size=5, opacity=0.8))
+    fig.update_traces(marker=dict(size=6.8, opacity=0.8))
     fig.update_layout(
         scene=dict(
             xaxis_title="PC1",
@@ -923,7 +923,7 @@ def build_umap_and_distances():
     dist_matrix = squareform(pdist(df_space.drop(columns=["ID", 'Base fee']).values, metric="euclidean"))
     df_dist = pd.DataFrame(dist_matrix, index=df_space['ID'], columns=df_space['ID'])
     
-    return df_space, df_dist, dist_matrix
+    return df_space, df_dist, dist_matrix, df_prices
 
 # 5.2 UMAP Space Scatter Plot
 def umap_space(df_space):
@@ -974,7 +974,7 @@ def vietoris_rips_3d(df_space, simplex_tree):
         z=df_space['UMAP3'],
         mode='markers',
         marker=dict(
-            size=4,
+            size=5,
             color=df_space['Base fee'],
             opacity=0.85,
             colorscale='amp',
@@ -1127,7 +1127,7 @@ def persistence_and_barcode(dist_matrix, max_edge=1.0):
     fig.update_layout(
         title="Persistent Homology: Diagram & Barcode",
         template="plotly_dark",
-        width=1000, height=600,
+        width=1000, height=800,
     )
     return fig
 
@@ -1166,10 +1166,117 @@ def betti_evolution(distance_matrix, edge_lengths=np.linspace(0.1, 1.1, 100), ma
     )
     fig.update_layout(
         font=dict(color="white"),
-        legend_title_text="k-th homology group",
+        legend_title_text="homology group",
+        height=350
     )
     return fig
 
+# 5.7 Sliding-Window Persistence Diagrams
+def sliding_window_persistence_multi(listing_ids, embedding_dim=3, max_edge_length=1.4):
+    """
+    Compute sliding-window persistence diagrams for up to 9 listing IDs
+    """
+    n = len(listing_ids)
+    cols = 3
+    rows = int(np.ceil(n/cols))
+    fig = make_subplots(
+        rows=rows, cols=cols,
+        subplot_titles=listing_ids,
+        horizontal_spacing=0.05, vertical_spacing=0.1
+    )
+    color_map = {0: red, 1: "#ff657f", 2: "#fac9c9"}
+    seen_dims = set()
+    for idx, lid in enumerate(listing_ids):
+        # Calculate row and column for the subplot
+        r = idx//cols + 1
+        c = idx%cols + 1    
+        raw = df_ts_interp.loc[df_ts_interp["ID"] == lid, dates] \
+                .values.flatten().astype(float)
+        if len(raw) < embedding_dim:
+            continue
+        
+        # Build the sliding window persistence diagram
+        series = StandardScaler().fit_transform(raw.reshape(-1,1)).flatten()
+        N = len(series) - embedding_dim + 1
+        cloud = np.stack([series[i:i+embedding_dim] for i in range(N)])
+        rips = gd.RipsComplex(points=cloud, max_edge_length=max_edge_length) # type: ignore
+        st = rips.create_simplex_tree(max_dimension=3)
+        st.compute_persistence()
+
+        # Collect births/deaths by dimension
+        dims = {}
+        for d,(b,e) in st.persistence():
+            e = e if e!=float("inf") else np.nanmax(series)
+            dims.setdefault(d,[]).append((b,e))
+
+        # Create figure
+        for d,pts in dims.items():
+            births, deaths = zip(*pts)
+            show = (d not in seen_dims)
+            fig.add_trace(
+                go.Scatter(
+                    x=births, y=deaths, mode="markers",
+                    marker=dict(color=color_map.get(d,"gray"), size=6),
+                    name=f"H{d}", legendgroup=f"dim{d}",
+                    showlegend=show
+                ),
+                row=r, col=c
+            )
+            if show:
+                seen_dims.add(d)
+        mn, mx = 0, np.nanmax(series)
+        fig.add_trace(
+            go.Scatter(
+                x=[mn,mx], y=[mn,mx], mode="lines",
+                line=dict(color="white", dash="dash"),
+                showlegend=False
+            ),
+            row=r, col=c
+        )
+        fig.update_xaxes(title_text="Birth", row=r, col=c)
+        fig.update_yaxes(title_text="Death", row=r, col=c)
+
+    fig.update_layout(
+        title=f"Sliding‐Window Persistence (embed={embedding_dim}, edge≤{max_edge_length})",
+        template="plotly_dark",
+        height=300*rows, width=300*cols
+    )
+    return fig
+
+# 5.8 Bipersistence Heatmap
+def bipersistence_heatmap(df_summary, n_steps=40):
+    """
+    Approximate a 2-parameter persistence surface β₀(p, v)
+    """
+    # compute β₀(p, v) as the count of listings with price_mean ≤ p and price_std ≤ v
+    P = df_summary["price_mean"].values
+    V = df_summary["price_std"].values
+    p_grid = np.linspace(P.min(), P.max(), n_steps)
+    v_grid = np.linspace(V.min(), V.max(), n_steps)
+    comp_counts = np.zeros((len(v_grid), len(p_grid)), dtype=int)
+    for i, v_thr in enumerate(v_grid):
+        for j, p_thr in enumerate(p_grid):
+            mask = (P <= p_thr) & (V <= v_thr)
+            comp_counts[i, j] = mask.sum()
+
+    # Create a heatmap
+    df = pd.DataFrame(
+        comp_counts, 
+        index=np.round(v_grid,3), 
+        columns=np.round(p_grid,3)
+    )
+    fig = px.imshow(
+        df,
+        labels=dict(x=f"price_mean ≤ p", y=f"price_std ≤ v", color="β₀ count"),
+        x=df.columns, 
+        y=df.index,
+        title=f"Approximate β₀(p,v) — Price vs Volatility",
+        aspect="auto",
+        template="plotly_dark",
+        color_continuous_scale="amp_r"
+    )
+    fig.update_xaxes(side="bottom")
+    return fig
 
 
 """_Classification_
@@ -1324,10 +1431,21 @@ clustering_tab = dbc.Tab(
 )
 
 
-df_space, df_dist, dist_matrix = build_umap_and_distances()
-#distance_matrix = df_dist.values
+df_space, df_dist, dist_matrix, df_prices = build_umap_and_distances()
 rips_complex = gd.RipsComplex(distance_matrix=df_dist.values, max_edge_length=0.6) #type: ignore
 simplex_tree = rips_complex.create_simplex_tree(max_dimension=3)
+main_ids = [
+    "865417719613815681","1364376551860961934","1316158964673335895",
+    "1315344706047362032","1282890977555839180","1038158992459515932",
+    "846281101302571252","897405006229683800","1315344706047362032"
+]
+price_summary = df_prices.groupby("ID").apply(
+    lambda g: pd.Series({
+        "price_mean": g["Value"].mean(),
+        "price_std":  g["Value"].std()
+    })
+)
+dfa = price_summary.reset_index().merge(compute_volatility_features(), left_on="ID", right_index=True)
 
 tda_tab = dbc.Tab(
     label="Topological Data Analysis",
@@ -1364,13 +1482,19 @@ tda_tab = dbc.Tab(
             ),
         ], className="mb-5 justify-content-center"),
         dbc.Row([
-            dbc.Col([
-                dcc.Graph(id="persistence-and-barcode", figure=persistence_and_barcode(dist_matrix)), 
-            ], width=8),
+            dbc.Col(
+                dcc.Graph(id="persistence-and-barcode", figure=persistence_and_barcode(dist_matrix)), width=8
+            ),
             dbc.Col([
                 dcc.Graph(id="betti-evolution", figure=betti_evolution(dist_matrix)), 
+                dcc.Graph(id="bipersistence-heatmap", figure=bipersistence_heatmap(dfa)),
             ], width=4),
-        ], className="mb-5")
+        ], className="mb-5"),
+        dbc.Row([
+            dbc.Col(
+                dcc.Graph(id="persistence-multi", figure=sliding_window_persistence_multi(main_ids)), width=7
+            ),
+        ], className="mb-5 justify-content-center")
     ]
 )
 
