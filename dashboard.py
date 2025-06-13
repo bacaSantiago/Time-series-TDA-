@@ -1296,7 +1296,7 @@ def bipersistence_heatmap(df_summary, n_steps=40):
 This section contains the classification functions for the dashboard.
 -----------------------------------------------------------------------------------------------------------
 """
-# 6.1 Load Precomputed Precision–Recall Curves
+# 6.1 Load Precomputed Precision–Recall Curves for Model 1
 def model1_price_tier_pr_curves():
     """
     Load the precomputed Precision–Recall curve JSON and return the corresponding figure.
@@ -1312,7 +1312,7 @@ def model1_price_tier_pr_curves():
     )
     return fig
 
-# 6.2 Load Feature Importances
+# 6.2 Load Feature Importances for Model 2
 def model2_feature_importances():
     """
     Load the pre-computed feature-importances JSON and return
@@ -1331,7 +1331,7 @@ def model2_feature_importances():
     
     return fig
 
-# 6.3 Load ROC Curve
+# 6.3 Load ROC Curve for Model 2
 def model2_roc_curve():
     """
     Load and return the ROC curve figure for model 2.
@@ -1340,6 +1340,38 @@ def model2_roc_curve():
     fig.update_layout(height=400)
     return fig
 
+# 6.4 Load Feature Importances for Model 3
+def model3_feature_importances():
+    """
+    Load the precomputed feature importances bar chart for Model 3
+    and apply the standard dark theme and sizing.
+    """
+    fig = pio.read_json("models/model3/feature_importances.json")
+    fig.update_layout(
+        title="Top 10 Feature Importances (Gradient Boosting)",
+        template="plotly_dark",
+        height=500,
+        margin=dict(l=40, r=40, t=60, b=40)
+    )
+    if any(trace.orientation == "h" for trace in fig.data):
+        fig.update_layout(yaxis=dict(autorange="reversed"))
+    return fig
+
+# 6.5 Load 2D PCA Scatter of Test Points Colored by Model 3 Predictions
+def model3_classification_scatter():
+    """
+    Load and return the 2D PCA scatter of test points,
+    colored by correct vs. misclassified (from model3).
+    """
+    fig = pio.read_json("models/model3/classification_scatter.json")
+    fig.update_layout(
+        title="2D PCA of Test Points: Correct vs. Misclassified",
+        legend_title="Prediction",
+        template="plotly_dark",
+    )
+    fig.update_traces(marker=dict(size=8, opacity=0.8))
+    
+    return fig
 
 
 """_Dash_
@@ -1568,6 +1600,7 @@ m1_metrics = pd.read_csv("models/model1/price_tier_metrics.csv")
 m1_cm      = pd.read_csv("models/model1/price_tier_confusion_matrix.csv", index_col=0)
 m2_metrics = pd.read_csv("models/model2/metrics_summary.csv")
 m2_cm      = pd.read_csv("models/model2/confusion_matrix.csv", index_col=0)
+m3_metrics = pd.read_csv("models/model3/metrics_summary.csv")
 
 classification_tab = dbc.Tab(
     label="Classification",
@@ -1696,6 +1729,65 @@ classification_tab = dbc.Tab(
             ],
             className="mb-5 justify-content-center",
             style={"columnGap": "2rem"}  
+        ),
+        
+        # Header for Model 3
+        html.H5(
+            "Soft-Voting Ensemble (GB + DT) for Amenity Cluster Prediction",
+            style={
+                "text-align": "center",
+                "margin-top": "60px",
+                "color": "white",
+                "margin-bottom": "10px",
+            }
+        ),
+        html.P(
+            "This ensemble predicts unsupervised amenity-based clusters "
+            "using static attributes, tuned via 5-fold CV on a soft-voting "
+            "GradientBoosting + DecisionTree model.",
+            style={
+                "text-align": "center",
+                "color": "#bbbbbb",
+                "max-width": "900px",
+                "margin": "0 auto 40px"
+            }
+        ),
+
+        # Row for Model 3 Metrics, Confusion Matrix, Feature Importances, and Scatter
+        dbc.Row(
+            [
+                dbc.Col([
+                    html.Div([
+                        html.H6("Metrics Summary", style={'text-align': 'center', 'color': 'white'}),
+                        dash_table.DataTable(
+                            id="m3-metrics-table",
+                            columns=[{"name": c, "id": c} for c in m3_metrics.columns],
+                            data=m3_metrics.to_dict("records"), # type: ignore
+                            style_as_list_view=True,
+                            style_header={"backgroundColor": "#222222", "fontWeight": "bold", "color": "white"},
+                            style_cell={"backgroundColor": "#111111", "color": "white", "textAlign": "center"},
+                        )
+                    ]),
+                ], width=4),
+                dbc.Col(
+                    dcc.Graph(
+                        id="m3-feature-importances",
+                        figure=model3_feature_importances(),
+                        style={"height": "400px", "margin-bottom": "20px"}
+                    ), width=6),
+            ],
+            className="mb-2 justify-content-center",
+            style={"columnGap": "2rem"}
+        ),
+        dbc.Row(
+                dbc.Col(
+                    dcc.Graph(
+                        id="m3-class-scatter",
+                        figure=model3_classification_scatter(),
+                        style={"height": "400px"}
+                    ), width=8),
+            className="mb-5 justify-content-center",
+            style={"columnGap": "2rem"}
         ),
     ]
 )
