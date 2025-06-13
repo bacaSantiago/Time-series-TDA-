@@ -1297,10 +1297,11 @@ This section contains the classification functions for the dashboard.
 -----------------------------------------------------------------------------------------------------------
 """
 # 6.1 Load Precomputed Precision–Recall Curves
-def price_tier_pr_curves(fig):
+def model1_price_tier_pr_curves():
     """
     Load the precomputed Precision–Recall curve JSON and return the corresponding figure.
     """
+    fig = pio.read_json("models/model1/price_tier_pr_curves.json")
     fig.update_layout(
         title="Precision–Recall Curves by Class",
         template="plotly_dark",
@@ -1311,6 +1312,33 @@ def price_tier_pr_curves(fig):
     )
     return fig
 
+# 6.2 Load Feature Importances
+def model2_feature_importances():
+    """
+    Load the pre-computed feature-importances JSON and return
+    a dark-themed Plotly bar chart (top 20).
+    """
+    fig = pio.read_json("models/model2/feature_importances.json")
+    fig.update_layout(
+        title="Top 20 Feature Importances (Random Forest)",
+        template="plotly_dark",
+        xaxis_title="Importance",
+        yaxis_title="",
+        margin=dict(l=200, r=40, t=80, b=40),
+        height=600,
+    )
+    fig.update_yaxes(autorange="reversed")
+    
+    return fig
+
+# 6.3 Load ROC Curve
+def model2_roc_curve():
+    """
+    Load and return the ROC curve figure for model 2.
+    """
+    fig = pio.read_json("models/model2/roc_curve.json")
+    fig.update_layout(height=400)
+    return fig
 
 
 
@@ -1537,8 +1565,9 @@ tda_tab = dbc.Tab(
 
 
 m1_metrics = pd.read_csv("models/model1/price_tier_metrics.csv")
-m1_cm = pd.read_csv("models/model1/price_tier_confusion_matrix.csv", index_col=0)
-m1_pr = pio.read_json("models/model1/price_tier_pr_curves.json")
+m1_cm      = pd.read_csv("models/model1/price_tier_confusion_matrix.csv", index_col=0)
+m2_metrics = pd.read_csv("models/model2/metrics_summary.csv")
+m2_cm      = pd.read_csv("models/model2/confusion_matrix.csv", index_col=0)
 
 classification_tab = dbc.Tab(
     label="Classification",
@@ -1570,7 +1599,7 @@ classification_tab = dbc.Tab(
                 "margin-left": "auto", "margin-right": "auto", "margin-bottom": "50px"}
         ),
 
-        # Row for Metrics, Confusion Matrix, and Precision-Recall Curve
+        # Row for Model 2 Metrics, Confusion Matrix, and Precision-Recall Curve
         dbc.Row([
             dbc.Col([
                 html.Div([
@@ -1598,13 +1627,78 @@ classification_tab = dbc.Tab(
             ], width=5), 
             dbc.Col(dcc.Graph(
                 id='m1-pr-curve',
-                figure=price_tier_pr_curves(m1_pr),
+                figure=model1_price_tier_pr_curves(),
                 style={'height': '420px'}
             ), width=5)
         ], className="mb-5 justify-content-center"),
+        
+        # Header for Model 2
+        html.H5(
+            "Soft-Voting Ensemble (RF + L1-Logistic) for Superhost Prediction",
+            style={
+                "text-align": "center",
+                "margin-top": "60px",
+                "color": "white",
+                "margin-bottom": "10px",
+            }
+        ),
+        html.P(
+            "This ensemble combines a Random Forest and an L1-penalized Logistic Regression to predict whether "
+            "a listing will be 'Superhost'-level (avg rating ≥ 4.8), using static, temporal and topological features.",
+            style={
+                "text-align": "center",
+                "color": "#bbbbbb",
+                "max-width": "900px",
+                "margin": "0 auto 40px"
+            }
+        ),
+
+        # Row for Model 2 Metrics, Confusion Matrix, Feature Importances, and ROC Curve
+        dbc.Row(
+            [
+                dbc.Col([
+                    html.Div([
+                        html.H6("Metrics Summary", style={'text-align': 'center', 'color': 'white'}),
+                        dash_table.DataTable(
+                            id="m2-metrics-table",
+                            columns=[{"name": c, "id": c} for c in m2_metrics.columns],
+                            data=m2_metrics.to_dict("records"), # type: ignore
+                            style_as_list_view=True,
+                            style_header={"backgroundColor": "#222222", "fontWeight": "bold", "color": "white"},
+                            style_cell={"backgroundColor": "#111111", "color": "white", "textAlign": "center"},
+                        )
+                    ], style={"margin-bottom": "30px"}),
+                    html.Div([
+                        html.H6("Confusion Matrix", style={'text-align': 'center', 'color': 'white'}),
+                        dash_table.DataTable(
+                            id="m2-confusion-matrix",
+                            columns=[{"name": f"Pred {cls}", "id": cls} for cls in m2_cm.columns],
+                            data=m2_cm.reset_index().rename(columns={"index": "True"}).to_dict("records"), # type: ignore
+                            style_as_list_view=True,
+                            style_header={"backgroundColor": "#222222", "fontWeight": "bold", "color": "white"},
+                            style_cell={"backgroundColor": "#111111", "color": "white", "textAlign": "center"},
+                        )
+                    ], style={"margin-bottom": "30px"}),
+                    dcc.Graph(
+                        id="m2-roc-curve",
+                        figure=model2_roc_curve(),
+                        style={"height": "400px"}
+                    ),
+                ], width=4),
+                dbc.Col(
+                    dcc.Graph(
+                        id="m2-feature-importances",
+                        figure=model2_feature_importances(),
+                        style={"height": "740px"}
+                    ),
+                    width=6
+                ),
+            ],
+            className="mb-5 justify-content-center",
+            style={"columnGap": "2rem"}  
+        ),
     ]
 )
-
 
 
 # Create the Dash app
