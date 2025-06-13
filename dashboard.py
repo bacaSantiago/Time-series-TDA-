@@ -20,6 +20,7 @@ from sklearn.feature_selection import VarianceThreshold
 from scipy.spatial.distance import pdist, squareform
 import umap
 import gudhi as gd
+import plotly.io as pio
 
 import warnings
 warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -862,6 +863,7 @@ This section contains the topological data analysis functions for the dashboard.
 def build_umap_and_distances():
     # Drop some columns that are not needed
     df_temp = df_attr.copy()
+    """
     df_temp=df_temp[[
     'Name', 'Host', 'Base fee', 'Cleaning fee', 'URL', 'ID', 'latitude',
     'longitude', 'Property type', 'Person capacity', 'accuracy_rating',
@@ -874,6 +876,15 @@ def build_umap_and_distances():
     'Cable TV', 'Wifi', 'Laundry service', 'Kitchen', 'Dining table',
     'Microwave', 'Dishes and silverware', 'Refrigerator', 'Stove', 'Keypad',
     'Washer', 'Pets allowed', 'Crib', 'Security cameras', 'Lock on door']]
+    to_keep = [
+        "Keypad", "Lock on door", "Smoke detector", "Security cameras", "AC", "Heating", 
+        "Patio or balcony", "Stove", "Elevator", "Refrigerator", "Kitchen", "Wifi", 
+        "TV", "Jacuzzi", "Carport", "Hot water", 
+    ]
+    df_temp = df_temp[["ID", "Base fee"] + to_keep]
+    """
+    df_temp = df_temp.iloc[:, :21]
+    
 
     # Melt time series data to long format
     df_prices = (
@@ -909,7 +920,7 @@ def build_umap_and_distances():
     # Drop highly correlated (>0.9)
     df_reduced = pd.DataFrame(X, columns=to_keep)
     corr = df_reduced.corr().abs()
-    upper = corr.where(np.triu(np.ones(corr.shape, dtype=bool), k=1))
+    upper = corr.where(np.triu(np.ones(corr.shape, dtype=bool), k=1)) # type: ignore
     to_drop = [c for c in upper.columns if (upper[c] > 0.9).any()]
     df_space = df_reduced.drop(columns=to_drop)
 
@@ -1279,11 +1290,26 @@ def bipersistence_heatmap(df_summary, n_steps=40):
     return fig
 
 
+
 """_Classification_
 -----------------------------------------------------------------------------------------------------------
 This section contains the classification functions for the dashboard.
 -----------------------------------------------------------------------------------------------------------
 """
+# 6.1 Load Precomputed Precision–Recall Curves
+def price_tier_pr_curves(fig):
+    """
+    Load the precomputed Precision–Recall curve JSON and return the corresponding figure.
+    """
+    fig.update_layout(
+        title="Precision–Recall Curves by Class",
+        template="plotly_dark",
+        xaxis_title="Recall",
+        yaxis_title="Precision",
+        legend=dict(bgcolor="rgba(0,0,0,0)"),
+        height=420
+    )
+    return fig
 
 
 
@@ -1310,7 +1336,7 @@ eda_tab = dbc.Tab(
             explore nightly base fees, cleaning charges, ratings, property types, amenities and size effects, as 
             well as the completeness and interpolation of our time-series price data.
             """,
-            style={"text-align": "center", "margin-bottom": "40px", "color": "#dddddd",
+            style={"text-align": "center", "margin-bottom": "40px", "color": "#bbbbbb",
                 "max-width": "1300px", "margin-left": "auto", "margin-right": "auto"}
         ),
         html.Hr(style={"margin-bottom": "30px"}),
@@ -1332,7 +1358,7 @@ eda_tab = dbc.Tab(
             ),
         ], className="mb-5"),
         dbc.Row([
-            dbc.Col(
+            dbc.Col( 
                 dcc.Graph(id="amenity-lollipop", figure=amenity_presence_lollipop()), width=6
             ),
             dbc.Col([
@@ -1398,7 +1424,7 @@ clustering_tab = dbc.Tab(
             We also analyze amenity presence and clustering, and visualize the results using scatter plots,
             dendrograms, and bar charts.
             """,
-            style={"text-align": "center", "margin-bottom": "40px", "color": "#dddddd",
+            style={"text-align": "center", "margin-bottom": "40px", "color": "#bbbbbb",
                 "max-width": "1300px", "margin-left": "auto", "margin-right": "auto"}
         ),
         html.Hr(style={"margin-bottom": "30px"}),
@@ -1462,7 +1488,7 @@ tda_tab = dbc.Tab(
             We explore the UMAP space, projections of the Vietoris-Rips complex, and the evolution of Betti numbers.
             We also visualize the persistence diagram and barcode to understand the topological features of the data.
             """,
-            style={"text-align": "center", "margin-bottom": "40px", "color": "#dddddd",
+            style={"text-align": "center", "margin-bottom": "40px", "color": "#bbbbbb",
                 "max-width": "1300px", "margin-left": "auto", "margin-right": "auto"}
         ),
         html.Hr(style={"margin-bottom": "30px"}),
@@ -1494,21 +1520,89 @@ tda_tab = dbc.Tab(
             dbc.Col(
                 dcc.Graph(id="persistence-multi", figure=sliding_window_persistence_multi(main_ids)), width=7
             ),
-        ], className="mb-5 justify-content-center")
+        ], className="mb-5 justify-content-center"),
+        dbc.Row(
+            [
+            dbc.Col(
+                html.Div(
+                    html.Img(
+                        src="/assets/rips_complex_animation.gif",
+                        style={"width": "85%", "height": "auto"}
+                    ), style={"textAlign": "center"}   
+                ),width=10, className="mx-auto" 
+            ),
+        ], className="mb-5")
     ]
 )
 
 
-extra_tab = dbc.Tab(
-    label="Extra",
+m1_metrics = pd.read_csv("models/model1/price_tier_metrics.csv")
+m1_cm = pd.read_csv("models/model1/price_tier_confusion_matrix.csv", index_col=0)
+m1_pr = pio.read_json("models/model1/price_tier_pr_curves.json")
+
+classification_tab = dbc.Tab(
+    label="Classification",
     children=[
-        html.H2("Additional Analyses / Notes", className="text-center mt-4"),
-        html.P(
-            "Use this space for anomaly detection, anomaly tables, "
-            "or links to raw data download.",
-            className="text-center mb-4"
+        html.H4(
+            "Classification",
+            style={"text-align": "center", "margin-top": "30px", "color": "white", 
+                   "font-weight": "bold", "font-size": "28px"}
         ),
-    ],
+        html.P(
+            """
+            In this section we perform classification on our Airbnb listings using various features.
+            """,
+            style={"text-align": "center", "margin-bottom": "40px", "color": "#bbbbbb",
+                "max-width": "1300px", "margin-left": "auto", "margin-right": "auto"}
+        ),
+        html.Hr(style={"margin-bottom": "30px"}),
+        
+        # Header for Model 1
+        html.H5("XGBoost Classifier on Static, Temporal, Topological & Amenity Features", 
+                style={'text-align': 'center', 'margin-top': '20px', 'color': 'white',
+                    'margin-bottom': '10px'}
+        ),
+        html.P(
+            "This XGBoost model classifies Airbnb listings into Low, Mid, or High price tiers using numerical attributes, "
+            "interpolated time series, UMAP+TDA summaries, and binary amenity indicators. The model was optimized through "
+            "GridSearchCV with 5-fold cross-validation.",
+            style={"text-align": "center", "color": "#bbbbbb", "max-width": "1000px",
+                "margin-left": "auto", "margin-right": "auto", "margin-bottom": "50px"}
+        ),
+
+        # Row for Metrics, Confusion Matrix, and Precision-Recall Curve
+        dbc.Row([
+            dbc.Col([
+                html.Div([
+                    html.H6("Metrics Summary", style={'text-align': 'center', 'color': 'white', 'fontsize': '16px'}),
+                    dash_table.DataTable(
+                        id='m1-metrics-table',
+                        columns=[{'name': col, 'id': col} for col in m1_metrics.columns],
+                        data=m1_metrics.to_dict('records'), # type: ignore
+                        style_cell={'textAlign': 'center', 'backgroundColor': '#111111', 'color': 'dddddd'},
+                        style_header={'backgroundColor': '#222222', 'fontWeight': 'bold', 'color': '#dddddd'},
+                        style_as_list_view=True
+                    )
+                ], style={"margin-bottom": "30px"}),
+                html.Div([
+                    html.H6("Confusion Matrix", style={'text-align': 'center', 'color': 'white', 'fontsize': '25px'}),
+                    dash_table.DataTable(
+                        id='m1-confusion-matrix',
+                        columns=[{'name': f'Pred {cls}', 'id': cls} for cls in m1_cm.columns],
+                        data=m1_cm.reset_index().rename(columns={"index": "True"}).to_dict('records'), # type: ignore
+                        style_cell={'textAlign': 'center', 'backgroundColor': '#111', 'color': 'white'},
+                        style_header={'backgroundColor': '#222', 'fontWeight': 'bold', 'color': 'white'},
+                        style_as_list_view=True
+                    )
+                ]), 
+            ], width=5), 
+            dbc.Col(dcc.Graph(
+                id='m1-pr-curve',
+                figure=price_tier_pr_curves(m1_pr),
+                style={'height': '420px'}
+            ), width=5)
+        ], className="mb-5 justify-content-center"),
+    ]
 )
 
 
@@ -1530,7 +1624,7 @@ app.layout = dbc.Container(
             dark=True,
             fluid=True,
         ),
-        dbc.Tabs([eda_tab, clustering_tab, tda_tab, extra_tab], className="mt-3"),
+        dbc.Tabs([eda_tab, clustering_tab, tda_tab, classification_tab], className="mt-3"),
         html.Footer(
             dbc.Container(
                 [
