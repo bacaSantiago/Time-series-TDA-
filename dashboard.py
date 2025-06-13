@@ -1347,7 +1347,7 @@ eda_tab = dbc.Tab(
             ),
             dbc.Col(
                 dcc.Graph(id="cleaning-vs-base", figure=cleaning_vs_base_fee()), width=6
-            ),
+            ), 
         ], className="mb-5"),
         dbc.Row([
             dbc.Col(
