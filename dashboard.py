@@ -1612,7 +1612,12 @@ classification_tab = dbc.Tab(
         ),
         html.P(
             """
-            In this section we perform classification on our Airbnb listings using various features.
+            In this section we explore classification models for predicting price tiers and superhost status.
+            We use an XGBoost classifier to predict price tiers (Low, Mid, High) based on static, temporal, topological,
+            and amenity features. We also build a soft-voting ensemble of a Random Forest and L1-penalized Logistic Regression
+            to predict superhost status (avg rating ≥ 4.8). We evaluate the models using metrics, confusion matrices,
+            precision-recall curves, and feature importances. We visualize the results to understand model performance
+            and feature contributions.
             """,
             style={"text-align": "center", "margin-bottom": "40px", "color": "#bbbbbb",
                 "max-width": "1300px", "margin-left": "auto", "margin-right": "auto"}
