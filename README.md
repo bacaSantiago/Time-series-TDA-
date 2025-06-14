@@ -89,13 +89,12 @@ Potential applications include dynamic pricing optimization, anomaly detection, 
   * `re`, `random`, `warnings` (utility functions)
 * **Machine Learning Models:**
 
-    * `XGBoost`
-    * `Random Forest`
-    * `Logistic Regression (L1 penalized)`
-    * `Voting Classifier (soft voting)`
-    * `Decision Tree`
-    * `Gradient Boosting`
-
+  * `XGBoost`
+  * `Random Forest`
+  * `Logistic Regression (L1 penalized)`
+  * `Voting Classifier (soft voting)`
+  * `Decision Tree`
+  * `Gradient Boosting`
 * **Other:**
 
   * `statsmodels` or `scipy.stats` (OLS trendlines, KDE)
@@ -141,4 +140,3 @@ Potential applications include dynamic pricing optimization, anomaly detection, 
 * **Anomaly Detection:** Flag “disconnected” listings with atypical pricing behavior.
 * **Feature Engineering:** Leverage TDA summaries (sum of lifetimes, Betti curves) as robust predictors in recommendation systems.
 * **Generalizable Framework:** Adapt methodology to other P2P platforms, geographies, or time windows.
-
