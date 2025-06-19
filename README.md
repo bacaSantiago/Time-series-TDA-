@@ -140,3 +140,9 @@ Potential applications include dynamic pricing optimization, anomaly detection, 
 * **Anomaly Detection:** Flag “disconnected” listings with atypical pricing behavior.
 * **Feature Engineering:** Leverage TDA summaries (sum of lifetimes, Betti curves) as robust predictors in recommendation systems.
 * **Generalizable Framework:** Adapt methodology to other P2P platforms, geographies, or time windows.
+
+---
+
+## License
+
+Data provided by **Tecnológico de Monterrey** for academic and research purposes. Redistribution of raw data is subject to the institution’s policies. Please contact the institution for access or usage permissions.
