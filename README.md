@@ -1,4 +1,4 @@
-# [Topological Analysis of Airbnb Price Dynamics in Cartagena](https://topological-analysis-of-airbnb-price.onrender.com/)
+# Topological Analysis of Airbnb Price Dynamics in Cartagena
 
 > 🌐 Live Dashboard: [https://topological-analysis-of-airbnb-price.onrender.com/](https://topological-analysis-of-airbnb-price.onrender.com/)
 
