@@ -126,7 +126,7 @@ Potential applications include dynamic pricing optimization, anomaly detection, 
 4. **Run the dashboard:**
 
    ```bash
-   dashboard app.py
+   python dashboard.py
    ```
 
    Navigate to `http://127.0.0.1:8050` in your browser.
